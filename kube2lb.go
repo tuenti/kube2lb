@@ -5,6 +5,10 @@ import (
 	"log"
 )
 
+func init() {
+	log.SetPrefix("[kube2lb] ")
+}
+
 func main() {
 	var apiserver, config, template, notify string
 	flag.StringVar(&apiserver, "apiserver", "http://localhost:8080", "Kubernetes API server URL")
