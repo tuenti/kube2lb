@@ -17,6 +17,5 @@ COPY entrypoint.sh /entrypoint.sh
 ENV TEMPLATE /etc/kube2lb/Caddyfile.tpl
 
 EXPOSE 80
-EXPOSE 2015
 
 CMD ["/entrypoint.sh"]

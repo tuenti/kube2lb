@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"strconv"
 	"strings"
 	"syscall"
@@ -14,6 +15,10 @@ type Notifier interface {
 
 func NewNotifier(definition string) (Notifier, error) {
 	ds := strings.SplitN(definition, ":", 2)
+	if len(ds) != 2 {
+		return nil, fmt.Errorf("Unknown notifier definition")
+	}
+
 	t := ds[0]
 	target := ds[1]
 	switch t {
@@ -25,6 +30,8 @@ func NewNotifier(definition string) (Notifier, error) {
 		return &PidNotifier{Pid: pid, Signal: syscall.SIGUSR1}, nil
 	case "pidfile":
 		return &PidfileNotifier{Pidfile: target, Signal: syscall.SIGUSR1}, nil
+	case "debug":
+		return &DebugNotifier{}, nil
 	default:
 		return nil, fmt.Errorf("Don't know how to notify to '%s'", definition)
 	}
@@ -54,4 +61,11 @@ func (n *PidfileNotifier) Notify() error {
 		return err
 	}
 	return syscall.Kill(pid, n.Signal)
+}
+
+type DebugNotifier struct{}
+
+func (n *DebugNotifier) Notify() error {
+	log.Printf("Notify")
+	return nil
 }

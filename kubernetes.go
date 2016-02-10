@@ -7,6 +7,7 @@ import (
 
 	api "k8s.io/kubernetes/pkg/api"
 	client "k8s.io/kubernetes/pkg/client/unversioned"
+	clientcmd "k8s.io/kubernetes/pkg/client/unversioned/clientcmd"
 )
 
 type KubernetesClient struct {
@@ -16,20 +17,44 @@ type KubernetesClient struct {
 	templates []*Template
 }
 
-func NewKubernetesClient(apiserver string) (*KubernetesClient, error) {
-	var err error
-	c := &KubernetesClient{
-		notifiers: make([]Notifier, 0, 10),
-		templates: make([]*Template, 0, 10),
+func getClientConfig(kubecfg, apiserver string) (*client.Config, error) {
+	if apiserver == "" && kubecfg == "" {
+		if config, err := client.InClusterConfig(); err == nil {
+			return config, nil
+		} else {
+			return nil, err
+		}
 	}
+	if apiserver != "" && kubecfg == "" {
+		return &client.Config{Host: apiserver}, nil
+	}
+	overrides := &clientcmd.ConfigOverrides{}
+	overrides.ClusterInfo.Server = apiserver
+	rules := clientcmd.NewDefaultClientConfigLoadingRules()
+	rules.ExplicitPath = kubecfg
+	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, overrides).ClientConfig()
+}
 
-	c.client, err = client.New(&client.Config{
-		Host: apiserver,
-	})
-	if err != nil {
+func NewKubernetesClient(kubecfg, apiserver string) (*KubernetesClient, error) {
+	var (
+		config *client.Config
+		err    error
+	)
+
+	if config, err = getClientConfig(kubecfg, apiserver); err != nil {
 		return nil, err
 	}
-	return c, nil
+
+	log.Printf("Using %s for kubernetes master", config.Host)
+	if c, err := client.New(config); err != nil {
+		return nil, err
+	} else {
+		return &KubernetesClient{
+			client:    c,
+			notifiers: make([]Notifier, 0, 10),
+			templates: make([]*Template, 0, 10),
+		}, nil
+	}
 }
 
 func (c *KubernetesClient) AddNotifier(n Notifier) {
@@ -44,13 +69,13 @@ func (c *KubernetesClient) Update() error {
 	options := api.ListOptions{}
 
 	ni := c.client.Nodes()
-	nodes, err := ni.List(options)
+	nodes, err := ni.List(options.LabelSelector, options.FieldSelector)
 	if err != nil {
 		return fmt.Errorf("Couldn't get nodes: ", err)
 	}
 
 	si := c.client.Services(api.NamespaceAll)
-	services, err := si.List(options)
+	services, err := si.List(options.LabelSelector)
 	if err != nil {
 		return fmt.Errorf("Couldn't get services: ", err)
 	}
@@ -61,7 +86,8 @@ func (c *KubernetesClient) Update() error {
 	}
 	servicePorts := make([]ServicePorts, 0, len(services.Items))
 	for _, s := range services.Items {
-		if s.Spec.Type == api.ServiceTypeNodePort || s.Spec.Type == api.ServiceTypeLoadBalancer {
+		switch s.Spec.Type {
+		case api.ServiceTypeNodePort, api.ServiceTypeLoadBalancer:
 			for _, port := range s.Spec.Ports {
 				servicePorts = append(servicePorts, ServicePorts{s.Name, port.Port, port.NodePort})
 			}
