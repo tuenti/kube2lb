@@ -45,8 +45,12 @@ func main() {
 
 	client.AddTemplate(NewTemplate(template, config))
 	client.AddNotifier(notifier)
-	client.Update()
-	client.Watch()
 
-	select {}
+	if err := client.Update(); err != nil {
+		log.Fatalf("Couldn't update with initial state: %s", err)
+	}
+
+	if err := client.Watch(); err != nil {
+		log.Fatalf("Couldn't watch Kubernetes API server: %s", err)
+	}
 }

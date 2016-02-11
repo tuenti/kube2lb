@@ -3,11 +3,11 @@ package main
 import (
 	"fmt"
 	"log"
-	"time"
 
 	api "k8s.io/kubernetes/pkg/api"
 	client "k8s.io/kubernetes/pkg/client/unversioned"
-	clientcmd "k8s.io/kubernetes/pkg/client/unversioned/clientcmd"
+	"k8s.io/kubernetes/pkg/client/unversioned/clientcmd"
+	"k8s.io/kubernetes/pkg/watch"
 )
 
 type KubernetesClient struct {
@@ -112,11 +112,33 @@ func (c *KubernetesClient) Update() error {
 	return nil
 }
 
-func (c *KubernetesClient) Watch() {
+func (c *KubernetesClient) Watch() error {
+	options := api.ListOptions{}
+	ni := c.client.Nodes()
+	si := c.client.Services(api.NamespaceAll)
+
+	nodeWatcher, err := ni.Watch(options.LabelSelector, options.FieldSelector, "")
+	if err != nil {
+		return fmt.Errorf("Couldn't watch events on nodes: %v", err)
+	}
+
+	serviceWatcher, err := si.Watch(options.LabelSelector, options.FieldSelector, "")
+	if err != nil {
+		return fmt.Errorf("Couldn't watch events on nodes: %v", err)
+	}
+
 	for {
-		if err := c.Update(); err != nil {
-			log.Printf("Couldn't update state: ", err)
+		select {
+		case e := <-nodeWatcher.ResultChan():
+			if e.Type == watch.Added || e.Type == watch.Deleted {
+				if err := c.Update(); err != nil {
+					log.Printf("Couldn't update state: ", err)
+				}
+			}
+		case <-serviceWatcher.ResultChan():
+			if err := c.Update(); err != nil {
+				log.Printf("Couldn't update state: ", err)
+			}
 		}
-		time.Sleep(5 * time.Second)
 	}
 }
