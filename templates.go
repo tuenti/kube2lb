@@ -5,15 +5,15 @@ import (
 	"text/template"
 )
 
-type ServicePorts struct {
+type ServiceInformation struct {
 	ServiceName string
 	Port        int
 	NodePort    int
 }
 
 type ClusterInformation struct {
-	ServicePorts []ServicePorts
-	Nodes        []string
+	Services []ServiceInformation
+	Nodes    []string
 }
 
 type Template struct {

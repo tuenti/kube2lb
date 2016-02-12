@@ -61,53 +61,77 @@ func (c *KubernetesClient) AddNotifier(n Notifier) {
 	c.notifiers = append(c.notifiers, n)
 }
 
-func (c *KubernetesClient) AddTemplate(t *Template) {
-	c.templates = append(c.templates, t)
-}
-
-func (c *KubernetesClient) Update() error {
-	options := api.ListOptions{}
-
-	ni := c.client.Nodes()
-	nodes, err := ni.List(options.LabelSelector, options.FieldSelector)
-	if err != nil {
-		return fmt.Errorf("Couldn't get nodes: ", err)
-	}
-
-	si := c.client.Services(api.NamespaceAll)
-	services, err := si.List(options.LabelSelector)
-	if err != nil {
-		return fmt.Errorf("Couldn't get services: ", err)
-	}
-
-	nodeNames := make([]string, len(nodes.Items))
-	for i, n := range nodes.Items {
-		nodeNames[i] = n.Name
-	}
-	servicePorts := make([]ServicePorts, 0, len(services.Items))
-	for _, s := range services.Items {
-		switch s.Spec.Type {
-		case api.ServiceTypeNodePort, api.ServiceTypeLoadBalancer:
-			for _, port := range s.Spec.Ports {
-				servicePorts = append(servicePorts, ServicePorts{s.Name, port.Port, port.NodePort})
-			}
-		}
-	}
-
-	info := &ClusterInformation{
-		Nodes:        nodeNames,
-		ServicePorts: servicePorts,
-	}
-	for _, t := range c.templates {
-		if err := t.Execute(info); err != nil {
-			log.Printf("Couldn't write template: %s\n", err)
-		}
-	}
+func (c *KubernetesClient) Notify() {
 	for _, n := range c.notifiers {
 		if err := n.Notify(); err != nil {
 			log.Printf("Couldn't notify: %s\n", err)
 		}
 	}
+}
+
+func (c *KubernetesClient) AddTemplate(t *Template) {
+	c.templates = append(c.templates, t)
+}
+
+func (c *KubernetesClient) ExecuteTemplates(info *ClusterInformation) {
+	for _, t := range c.templates {
+		if err := t.Execute(info); err != nil {
+			log.Printf("Couldn't write template: %s\n", err)
+		}
+	}
+}
+
+func (c *KubernetesClient) getNodeNames() ([]string, error) {
+	options := api.ListOptions{}
+	ni := c.client.Nodes()
+	nodes, err := ni.List(options.LabelSelector, options.FieldSelector)
+	if err != nil {
+		return nil, err
+	}
+	nodeNames := make([]string, len(nodes.Items))
+	for i, n := range nodes.Items {
+		nodeNames[i] = n.Name
+	}
+	return nodeNames, nil
+}
+
+func (c *KubernetesClient) getServices(namespace string) ([]ServiceInformation, error) {
+	options := api.ListOptions{}
+	si := c.client.Services(api.NamespaceAll)
+	services, err := si.List(options.LabelSelector)
+	if err != nil {
+		return nil, fmt.Errorf("Couldn't get services: ", err)
+	}
+	servicesInformation := make([]ServiceInformation, 0, len(services.Items))
+	for _, s := range services.Items {
+		switch s.Spec.Type {
+		case api.ServiceTypeNodePort, api.ServiceTypeLoadBalancer:
+			for _, port := range s.Spec.Ports {
+				servicesInformation = append(servicesInformation, ServiceInformation{s.Name, port.Port, port.NodePort})
+			}
+		}
+	}
+	return servicesInformation, nil
+}
+
+func (c *KubernetesClient) Update() error {
+
+	nodeNames, err := c.getNodeNames()
+	if err != nil {
+		return fmt.Errorf("Couldn't get nodes: ", err)
+	}
+
+	services, err := c.getServices(api.NamespaceAll)
+	if err != nil {
+		return fmt.Errorf("Couldn't get services: ", err)
+	}
+
+	info := &ClusterInformation{
+		Nodes:    nodeNames,
+		Services: services,
+	}
+	c.ExecuteTemplates(info)
+	c.Notify()
 
 	return nil
 }
