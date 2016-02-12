@@ -6,14 +6,16 @@ import (
 )
 
 type ServiceInformation struct {
-	ServiceName string
-	Port        int
-	NodePort    int
+	Name      string
+	Namespace string
+	Port      int
+	NodePort  int
 }
 
 type ClusterInformation struct {
 	Services []ServiceInformation
 	Nodes    []string
+	Domain   string
 }
 
 type Template struct {

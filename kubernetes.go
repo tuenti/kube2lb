@@ -15,6 +15,8 @@ type KubernetesClient struct {
 
 	notifiers []Notifier
 	templates []*Template
+
+	domain string
 }
 
 func getClientConfig(kubecfg, apiserver string) (*client.Config, error) {
@@ -35,7 +37,7 @@ func getClientConfig(kubecfg, apiserver string) (*client.Config, error) {
 	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, overrides).ClientConfig()
 }
 
-func NewKubernetesClient(kubecfg, apiserver string) (*KubernetesClient, error) {
+func NewKubernetesClient(kubecfg, apiserver, domain string) (*KubernetesClient, error) {
 	var (
 		config *client.Config
 		err    error
@@ -53,6 +55,7 @@ func NewKubernetesClient(kubecfg, apiserver string) (*KubernetesClient, error) {
 			client:    c,
 			notifiers: make([]Notifier, 0, 10),
 			templates: make([]*Template, 0, 10),
+			domain:    domain,
 		}, nil
 	}
 }
@@ -107,7 +110,14 @@ func (c *KubernetesClient) getServices(namespace string) ([]ServiceInformation, 
 		switch s.Spec.Type {
 		case api.ServiceTypeNodePort, api.ServiceTypeLoadBalancer:
 			for _, port := range s.Spec.Ports {
-				servicesInformation = append(servicesInformation, ServiceInformation{s.Name, port.Port, port.NodePort})
+				servicesInformation = append(servicesInformation,
+					ServiceInformation{
+						Name:      s.Name,
+						Namespace: s.Namespace,
+						Port:      port.Port,
+						NodePort:  port.NodePort,
+					},
+				)
 			}
 		}
 	}
@@ -129,6 +139,7 @@ func (c *KubernetesClient) Update() error {
 	info := &ClusterInformation{
 		Nodes:    nodeNames,
 		Services: services,
+		Domain:   c.domain,
 	}
 	c.ExecuteTemplates(info)
 	c.Notify()

@@ -11,9 +11,10 @@ func init() {
 }
 
 func main() {
-	var apiserver, kubecfg, config, template, notify string
+	var apiserver, kubecfg, domain, config, template, notify string
 	flag.StringVar(&apiserver, "apiserver", "", "Kubernetes API server URL")
 	flag.StringVar(&kubecfg, "kubecfg", "", "Path to kubernetes client configuration (Optional)")
+	flag.StringVar(&domain, "domain", "local", "DNS domain for the cluster")
 	flag.StringVar(&config, "config", "", "Configuration path to generate")
 	flag.StringVar(&template, "template", "", "Configuration source template")
 	flag.StringVar(&notify, "notify", "", "Kubernetes API server URL")
@@ -38,7 +39,7 @@ func main() {
 		log.Fatalf("Couldn't initialize notifier: %s", err)
 	}
 
-	client, err := NewKubernetesClient(kubecfg, apiserver)
+	client, err := NewKubernetesClient(kubecfg, apiserver, domain)
 	if err != nil {
 		log.Fatalf("Couldn't connect with Kubernetes API server: %s", err)
 	}
