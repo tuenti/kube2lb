@@ -162,18 +162,29 @@ func (c *KubernetesClient) Watch() error {
 		return fmt.Errorf("Couldn't watch events on nodes: %v", err)
 	}
 
+	isFirstUpdate := true
+	updater := NewUpdater(func() {
+		var err error
+		if err = c.Update(); err != nil {
+			log.Printf("Couldn't update state: ", err)
+		}
+		if isFirstUpdate {
+			if err != nil {
+				log.Fatalf("Failing on first update, check configuration: ", err)
+			}
+			isFirstUpdate = false
+		}
+	})
+	go updater.Run()
+
 	for {
 		select {
 		case e := <-nodeWatcher.ResultChan():
 			if e.Type == watch.Added || e.Type == watch.Deleted {
-				if err := c.Update(); err != nil {
-					log.Printf("Couldn't update state: ", err)
-				}
+				updater.Signal()
 			}
 		case <-serviceWatcher.ResultChan():
-			if err := c.Update(); err != nil {
-				log.Printf("Couldn't update state: ", err)
-			}
+			updater.Signal()
 		}
 	}
 }

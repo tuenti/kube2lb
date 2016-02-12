@@ -6,10 +6,6 @@ import (
 	"os"
 )
 
-func init() {
-	log.SetPrefix("[kube2lb] ")
-}
-
 func main() {
 	var apiserver, kubecfg, domain, config, template, notify string
 	flag.StringVar(&apiserver, "apiserver", "", "Kubernetes API server URL")
@@ -46,10 +42,6 @@ func main() {
 
 	client.AddTemplate(NewTemplate(template, config))
 	client.AddNotifier(notifier)
-
-	if err := client.Update(); err != nil {
-		log.Fatalf("Couldn't update with initial state: %s", err)
-	}
 
 	if err := client.Watch(); err != nil {
 		log.Fatalf("Couldn't watch Kubernetes API server: %s", err)
