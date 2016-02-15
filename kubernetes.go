@@ -141,7 +141,6 @@ func (c *KubernetesClient) getServices(namespace string) ([]ServiceInformation, 
 }
 
 func (c *KubernetesClient) Update() error {
-
 	nodeNames, err := c.getNodeNames()
 	if err != nil {
 		return fmt.Errorf("Couldn't get nodes: ", err)
@@ -186,7 +185,7 @@ func (c *KubernetesClient) Watch() error {
 		}
 		if isFirstUpdate {
 			if err != nil {
-				log.Fatalf("Failing on first update, check configuration: ", err)
+				log.Fatalf("Failing on first update, check configuration.")
 			}
 			isFirstUpdate = false
 		}
