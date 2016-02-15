@@ -10,7 +10,7 @@ RUN wget "https://caddyserver.com/download/build?os=linux&arch=amd64&features=" 
 	echo localhost :8080 > /etc/caddy/Caddyfile && \
 	rm -f /tmp/caddy.tar.gz
 
-COPY templates /etc/kube2lb
+COPY Caddyfile.tpl /etc/kube2lb/Caddyfile.tpl
 COPY kube2lb /usr/local/bin/kube2lb
 COPY entrypoint.sh /entrypoint.sh
 
