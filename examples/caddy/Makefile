@@ -4,7 +4,8 @@ all: kube2lb
 	docker build --tag=$(TAG) .
 
 kube2lb:
-	go build ../..
+	make -C ../..
+	cp ../../kube2lb .
 
 clean:
 	rm -f kube2lb

@@ -18,19 +18,29 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
 )
 
+var version = "dev"
+
 func main() {
 	var apiserver, kubecfg, domain, config, template, notify string
+	var showVersion bool
 	flag.StringVar(&apiserver, "apiserver", "", "Kubernetes API server URL")
 	flag.StringVar(&kubecfg, "kubecfg", "", "Path to kubernetes client configuration (Optional)")
 	flag.StringVar(&domain, "domain", "local", "DNS domain for the cluster")
 	flag.StringVar(&config, "config", "", "Configuration path to generate")
 	flag.StringVar(&template, "template", "", "Configuration source template")
 	flag.StringVar(&notify, "notify", "", "Kubernetes API server URL")
+	flag.BoolVar(&showVersion, "version", false, "Show version")
 	flag.Parse()
+
+	if showVersion {
+		fmt.Println(version)
+		os.Exit(0)
+	}
 
 	if _, err := os.Stat(template); err != nil {
 		log.Fatalf("Template not defined or doesn't exist")
