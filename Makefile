@@ -1,4 +1,4 @@
-VERSION := `git log -1 --format="%H"`+dev
+VERSION := 0.9
 
 all:
 	go build -ldflags "-X main.version=$(VERSION)"
