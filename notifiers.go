@@ -23,6 +23,8 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+
+	"github.com/jsoriano/getsignal"
 )
 
 type Notifier interface {
@@ -31,21 +33,16 @@ type Notifier interface {
 
 func NewNotifier(definition string) (Notifier, error) {
 	ds := strings.SplitN(definition, ":", 2)
-	if len(ds) != 2 {
-		return nil, fmt.Errorf("Unknown notifier definition")
+	if len(ds) < 2 {
+		return nil, fmt.Errorf("Notifier definition expected")
 	}
-
 	t := ds[0]
-	target := ds[1]
+	d := ds[1]
 	switch t {
 	case "pid":
-		pid, err := strconv.Atoi(target)
-		if err != nil {
-			return nil, err
-		}
-		return &PidNotifier{Pid: pid, Signal: syscall.SIGUSR1}, nil
+		return NewPidNotifier(d)
 	case "pidfile":
-		return &PidfileNotifier{Pidfile: target, Signal: syscall.SIGUSR1}, nil
+		return NewPidfileNotifier(d)
 	case "debug":
 		return &DebugNotifier{}, nil
 	default:
@@ -54,21 +51,52 @@ func NewNotifier(definition string) (Notifier, error) {
 }
 
 type PidNotifier struct {
-	Pid    int
-	Signal syscall.Signal
+	pid    int
+	signal syscall.Signal
+}
+
+func NewPidNotifier(definition string) (*PidNotifier, error) {
+	// -notify pid:SIGNAL:PID
+	ds := strings.SplitN(definition, ":", 2)
+	if len(ds) < 2 {
+		return nil, fmt.Errorf("Missing arguments for PID notifier, expected: pid:SIGNAL:PID")
+	}
+	signal, err := getsignal.FromName(ds[0])
+	if err != nil {
+		return nil, err
+	}
+	pid, err := strconv.Atoi(ds[1])
+	if err != nil {
+		return nil, err
+	}
+	return &PidNotifier{pid: pid, signal: signal}, nil
 }
 
 func (n *PidNotifier) Notify() error {
-	return syscall.Kill(n.Pid, n.Signal)
+	return syscall.Kill(n.pid, n.signal)
 }
 
 type PidfileNotifier struct {
-	Pidfile string
-	Signal  syscall.Signal
+	pidfile string
+	signal  syscall.Signal
+}
+
+func NewPidfileNotifier(definition string) (*PidfileNotifier, error) {
+	// -notify pidfile:SIGNAL:PIDFILE
+	ds := strings.SplitN(definition, ":", 2)
+	if len(ds) < 2 {
+		return nil, fmt.Errorf("Missing arguments for PID notifier, expected: pid:SIGNAL:PIDFILE")
+	}
+	signal, err := getsignal.FromName(ds[0])
+	if err != nil {
+		return nil, err
+	}
+	pidfile := ds[1]
+	return &PidfileNotifier{pidfile: pidfile, signal: signal}, nil
 }
 
 func (n *PidfileNotifier) Notify() error {
-	c, err := ioutil.ReadFile(n.Pidfile)
+	c, err := ioutil.ReadFile(n.pidfile)
 	if err != nil {
 		return err
 	}
@@ -76,7 +104,7 @@ func (n *PidfileNotifier) Notify() error {
 	if err != nil {
 		return err
 	}
-	return syscall.Kill(pid, n.Signal)
+	return syscall.Kill(pid, n.signal)
 }
 
 type DebugNotifier struct{}

@@ -1,11 +1,11 @@
-TAG:=caddy
+TAG:=kube2lb:caddy
 
 all: kube2lb
-	docker build --tag=kube2lb:$(TAG) .
+	docker build --tag=$(TAG) .
 
 kube2lb:
 	go build ../..
 
 clean:
 	rm -f kube2lb
-	docker rmi kube2lb:$(TAG)
+	docker rmi $(TAG) || true
