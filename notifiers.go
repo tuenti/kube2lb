@@ -85,7 +85,7 @@ func NewPidfileNotifier(definition string) (*PidfileNotifier, error) {
 	// -notify pidfile:SIGNAL:PIDFILE
 	ds := strings.SplitN(definition, ":", 2)
 	if len(ds) < 2 {
-		return nil, fmt.Errorf("Missing arguments for PID notifier, expected: pid:SIGNAL:PIDFILE")
+		return nil, fmt.Errorf("Missing arguments for PID notifier, expected: pidfile:SIGNAL:PIDFILE")
 	}
 	signal, err := getsignal.FromName(ds[0])
 	if err != nil {
