@@ -3,6 +3,14 @@
 PIDFILE=/var/run/caddy.pid
 CONFFILE=/etc/caddy/Caddyfile
 
-caddy -conf=$CONFFILE -pidfile=$PIDFILE -log=stdout &
+_term() {
+	pkill -SIGQUIT caddy
+	pkill kube2lb
+	exit 0
+}
 
-kube2lb -apiserver=$APISERVER -kubecfg=$KUBECFG -template=$TEMPLATE -config=$CONFFILE -domain=$DOMAIN -notify=pidfile:SIGUSR1:$PIDFILE
+trap _term SIGTERM SIGINT
+
+caddy -conf=$CONFFILE -pidfile=$PIDFILE -log=stdout &
+kube2lb -apiserver=$APISERVER -kubecfg=$KUBECFG -template=$TEMPLATE -config=$CONFFILE -domain=$DOMAIN -notify=pidfile:SIGUSR1:$PIDFILE &
+wait $!
