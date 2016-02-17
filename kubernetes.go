@@ -27,7 +27,11 @@ import (
 )
 
 type KubernetesClient struct {
-	client *client.Client
+	client       *client.Client
+	clientConfig *client.Config
+
+	nodeWatcher    watch.Interface
+	serviceWatcher watch.Interface
 
 	notifiers []Notifier
 	templates []*Template
@@ -63,17 +67,40 @@ func NewKubernetesClient(kubecfg, apiserver, domain string) (*KubernetesClient, 
 		return nil, err
 	}
 
-	log.Printf("Using %s for kubernetes master", config.Host)
-	if c, err := client.New(config); err != nil {
-		return nil, err
-	} else {
-		return &KubernetesClient{
-			client:    c,
-			notifiers: make([]Notifier, 0, 10),
-			templates: make([]*Template, 0, 10),
-			domain:    domain,
-		}, nil
+	kc := &KubernetesClient{
+		clientConfig: config,
+		notifiers:    make([]Notifier, 0, 10),
+		templates:    make([]*Template, 0, 10),
+		domain:       domain,
 	}
+
+	if err := kc.connect(); err != nil {
+		return nil, err
+	}
+	return kc, nil
+}
+
+func (c *KubernetesClient) connect() (err error) {
+	log.Printf("Using %s for kubernetes master", c.clientConfig.Host)
+
+	if c.client, err = client.New(c.clientConfig); err != nil {
+		return
+	}
+
+	options := api.ListOptions{}
+
+	ni := c.client.Nodes()
+	c.nodeWatcher, err = ni.Watch(options.LabelSelector, options.FieldSelector, "")
+	if err != nil {
+		return fmt.Errorf("Couldn't watch events on nodes: %v", err)
+	}
+
+	si := c.client.Services(api.NamespaceAll)
+	c.serviceWatcher, err = si.Watch(options.LabelSelector, options.FieldSelector, "")
+	if err != nil {
+		return fmt.Errorf("Couldn't watch events on services: %v", err)
+	}
+	return
 }
 
 func (c *KubernetesClient) AddNotifier(n Notifier) {
@@ -163,20 +190,6 @@ func (c *KubernetesClient) Update() error {
 }
 
 func (c *KubernetesClient) Watch() error {
-	options := api.ListOptions{}
-	ni := c.client.Nodes()
-	si := c.client.Services(api.NamespaceAll)
-
-	nodeWatcher, err := ni.Watch(options.LabelSelector, options.FieldSelector, "")
-	if err != nil {
-		return fmt.Errorf("Couldn't watch events on nodes: %v", err)
-	}
-
-	serviceWatcher, err := si.Watch(options.LabelSelector, options.FieldSelector, "")
-	if err != nil {
-		return fmt.Errorf("Couldn't watch events on nodes: %v", err)
-	}
-
 	isFirstUpdate := true
 	updater := NewUpdater(func() {
 		var err error
@@ -192,14 +205,22 @@ func (c *KubernetesClient) Watch() error {
 	})
 	go updater.Run()
 
+	var more bool
+	var e watch.Event
 	for {
 		select {
-		case e := <-nodeWatcher.ResultChan():
+		case e, more = <-c.nodeWatcher.ResultChan():
 			if e.Type == watch.Added || e.Type == watch.Deleted {
 				updater.Signal()
 			}
-		case <-serviceWatcher.ResultChan():
+		case _, more = <-c.serviceWatcher.ResultChan():
 			updater.Signal()
+		}
+		if !more {
+			log.Printf("Connection closed, trying to reconnect")
+			if err := c.connect(); err != nil {
+				return err
+			}
 		}
 	}
 }
