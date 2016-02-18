@@ -19,6 +19,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"time"
 
 	api "k8s.io/kubernetes/pkg/api"
 	client "k8s.io/kubernetes/pkg/client/unversioned"
@@ -218,8 +219,13 @@ func (c *KubernetesClient) Watch() error {
 		}
 		if !more {
 			log.Printf("Connection closed, trying to reconnect")
-			if err := c.connect(); err != nil {
-				return err
+			for {
+				if err := c.connect(); err != nil {
+					log.Println(err)
+					time.Sleep(5 * time.Second)
+				} else {
+					break
+				}
 			}
 		}
 	}
