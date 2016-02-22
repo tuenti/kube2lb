@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"os/exec"
 	"strconv"
 	"strings"
 	"syscall"
@@ -39,6 +40,8 @@ func NewNotifier(definition string) (Notifier, error) {
 	t := ds[0]
 	d := ds[1]
 	switch t {
+	case "command":
+		return NewCommandNotifier(d)
 	case "pid":
 		return NewPidNotifier(d)
 	case "pidfile":
@@ -48,6 +51,22 @@ func NewNotifier(definition string) (Notifier, error) {
 	default:
 		return nil, fmt.Errorf("Don't know how to notify to '%s'", definition)
 	}
+}
+
+type CommandNotifier struct {
+	command string
+}
+
+func NewCommandNotifier(definition string) (*CommandNotifier, error) {
+	// -notify command:COMMAND
+	return &CommandNotifier{definition}, nil
+}
+
+func (n *CommandNotifier) Notify() error {
+	cmd := exec.Command("/bin/sh", "-c", n.command)
+	output, err := cmd.CombinedOutput()
+	log.Printf("%s", output)
+	return err
 }
 
 type PidNotifier struct {

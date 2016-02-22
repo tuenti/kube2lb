@@ -30,6 +30,7 @@ type ServiceInformation struct {
 
 type ClusterInformation struct {
 	Services []ServiceInformation
+	Ports    []int
 	Nodes    []string
 	Domain   string
 }

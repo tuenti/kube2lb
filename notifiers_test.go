@@ -30,6 +30,7 @@ var definitionCases = []struct {
 	{"pid::100", true},
 	{"pid:SIGTERM:100", false},
 	{"pidfile:SIGTERM:test.pid", false},
+	{"command:echo", false},
 }
 
 func TestNotifierDefinitions(t *testing.T) {

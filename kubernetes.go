@@ -179,9 +179,19 @@ func (c *KubernetesClient) Update() error {
 		return fmt.Errorf("Couldn't get services: ", err)
 	}
 
+	portsMap := make(map[int]bool)
+	for _, service := range services {
+		portsMap[service.Port] = true
+	}
+	ports := make([]int, 0, len(portsMap))
+	for port := range portsMap {
+		ports = append(ports, port)
+	}
+
 	info := &ClusterInformation{
 		Nodes:    nodeNames,
 		Services: services,
+		Ports:    ports,
 		Domain:   c.domain,
 	}
 	c.ExecuteTemplates(info)
