@@ -10,12 +10,12 @@ global
 	daemon
 
 defaults
-	log     global
-	mode    http
-	option  httplog
-	option  dontlognull
-	option forwardfor
-	option http-server-close
+	log        global
+	mode       http
+	option     httplog
+	option     dontlognull
+	option     forwardfor
+	http-reuse aggressive
 
 {{ range $i, $port := $ports }}
 frontend frontend_{{ $port }}
@@ -35,5 +35,5 @@ backend backend_{{ $label }}
 	balance leastconn
 	option httpclose
 	{{ range $i, $node := $nodes }}
-	server node{{ $i }} {{ $node }}:{{ $service.NodePort }}{{ end }}
+	server node{{ $i }} {{ $node }}:{{ $service.NodePort }} check{{ end }}
 {{ end }}

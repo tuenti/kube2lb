@@ -1,4 +1,4 @@
-FROM haproxy:1.6.3
+FROM haproxy:1.6.2
 
 MAINTAINER Jaime Soriano Pastor <jsoriano@tuenti.com>
 
