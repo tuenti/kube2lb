@@ -6,7 +6,7 @@
 global
 	log 127.0.0.1   local0
 	log 127.0.0.1   local1 notice
-	maxconn 4096
+	maxconn 65536
 	daemon
 
 defaults
@@ -23,7 +23,8 @@ frontend frontend_{{ $port }}
 {{ range $i, $service := $services }}
 {{ if eq $service.Port $port }}
 {{ $label := printf "%s_%s_%d" $service.Name $service.Namespace $service.Port }}
-	acl svc_{{ $label }} hdr(host) -i {{ $service.Name }}.{{ $service.Namespace }}.svc.{{ $domain }}
+	{{ range $serverName := ServerNames $service $domain }}
+	acl svc_{{ $label }} hdr(host) -i {{ $serverName }}{{ end }}
 	use_backend backend_{{ $label }} if svc_{{ $label }}
 {{ end }}
 {{ end }}
