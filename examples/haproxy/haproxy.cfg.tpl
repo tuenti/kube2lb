@@ -1,12 +1,11 @@
-{{ $nodes := .Nodes }}
-{{ $services := .Services }}
-{{ $domain := .Domain }}
-{{ $ports := .Ports }}
-
+{{ $nodes := .Nodes -}}
+{{ $services := .Services -}}
+{{ $domain := .Domain -}}
+{{ $ports := .Ports -}}
 global
 	log 127.0.0.1   local0
 	log 127.0.0.1   local1 notice
-	maxconn 4096
+	maxconn 65536
 	daemon
 
 defaults
@@ -20,17 +19,18 @@ defaults
 {{ range $i, $port := $ports }}
 frontend frontend_{{ $port }}
 	bind *:{{ $port }}
-{{ range $i, $service := $services }}
-{{ if eq $service.Port $port }}
-{{ $label := printf "%s_%s_%d" $service.Name $service.Namespace $service.Port }}
-	acl svc_{{ $label }} hdr(host) -i {{ $service.Name }}.{{ $service.Namespace }}.svc.{{ $domain }}
+{{- range $i, $service := $services }}
+{{- if eq $service.Port $port }}
+{{- $label := printf "%s_%s_%d" $service.Name $service.Namespace $service.Port }}
+	{{ range $serverName := ServerNames $service $domain }}
+	acl svc_{{ $label }} hdr(host) -i {{ $serverName }}{{ end }}
 	use_backend backend_{{ $label }} if svc_{{ $label }}
-{{ end }}
-{{ end }}
+{{- end }}
+{{- end }}
 {{ end }}
 
-{{ range $i, $service := $services }}
-{{ $label := printf "%s_%s_%d" $service.Name $service.Namespace $service.Port }}
+{{- range $i, $service := $services }}
+{{- $label := printf "%s_%s_%d" $service.Name $service.Namespace $service.Port }}
 backend backend_{{ $label }}
 	balance leastconn
 	option httpclose

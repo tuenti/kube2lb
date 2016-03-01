@@ -20,5 +20,5 @@ frontend nothing
 " > $CONFFILE
 
 haproxy -f $CONFFILE -p $PIDFILE
-kube2lb -apiserver=$APISERVER -kubecfg=$KUBECFG -template=$TEMPLATE -config=$CONFFILE -domain=$DOMAIN -notify=command:"haproxy -f $CONFFILE -p $PIDFILE -sf \$(cat $PIDFILE)" &
+kube2lb -apiserver="$APISERVER" -kubecfg="$KUBECFG" -template="$TEMPLATE" -server-name-templates="$SERVER_NAME_TEMPLATES" -config="$CONFFILE" -domain="$DOMAIN" -notify=command:"haproxy -f $CONFFILE -p $PIDFILE -sf \$(cat $PIDFILE)" &
 wait $!

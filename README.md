@@ -61,18 +61,33 @@ Configuration is taken in this order:
 Templates receive the list of nodes, services and the domain passed with the
 `-domain` flag.
 
+Templates can use the `ServerNames` function, that generates a list of server
+names to be used in load balancers configuration. This list is generated using
+a comma-separated list of templates passed with the `-server-name-templates`.
+
+For example, this flag could be used to generate two server names for each
+service, one with just the service name as a subdomain of example.com,
+and another one with the default names used by kubernetes:
+```
+kube2lb ... -server-name-templates "{{ .Service.Name }}.example.com,{{ .Service.Name }}.{{ .Service.Namespace }}.svc.{{ .Domain }}"
+```
+And in the configuration file template:
+```
+{{ range $serverName := ServerNames $service $domain }}
+acl svc_{{ $label }} hdr(host) -i {{ $serverName }}{{ end }}
+```
+
 `kube2lb` can be used with any service that is configured with configuration
 files and can do online configuration reload.
 
 By now these notifier definitions can be used:
 
-* `pid:SIGNAL:PID` (e.g: `-notify pid:SIGHUP:5678`), to notify to an specific
-  pid
-* `pidfile:SIGNAL:PIDFILE` (e.g: `-notify pidfile:SIGUSR1:/var/run/caddy.pid`),
-  to notify to the pid in a pidfile.
-* `debug:` (`-notify debug:`), doesn't notify, it just logs when `kube2lb`
-  detects a change in nodes or services, it can be used to test
-  configurations.
+* `command:COMMAND` executes a command to notify, this command is executed
+  inside a shell (e.g: `-notify command:"haproxy -f /etc/haproxy.cfg -p /run/haproxy.pid -sf \$(cat /run/haproxy.pid)"`)
+* `pid:SIGNAL:PID` notifies to an specific pid (e.g: `-notify pid:SIGHUP:5678`)
+* `pidfile:SIGNAL:PIDFILE` notifies to the pid in a pidfile (e.g: `-notify pidfile:SIGUSR1:/var/run/caddy.pid`)
+* `debug:` doesn't notify, it just logs when `kube2lb` detects a change in
+  nodes or services, it can be used to test configurations.
 
 ## Credits & Contact
 

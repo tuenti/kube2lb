@@ -26,13 +26,13 @@ import (
 var version = "dev"
 
 func main() {
-	var apiserver, kubecfg, domain, config, template, notify string
+	var apiserver, kubecfg, domain, configPath, templatePath, notify string
 	var showVersion bool
 	flag.StringVar(&apiserver, "apiserver", "", "Kubernetes API server URL")
 	flag.StringVar(&kubecfg, "kubecfg", "", "Path to kubernetes client configuration (Optional)")
 	flag.StringVar(&domain, "domain", "local", "DNS domain for the cluster")
-	flag.StringVar(&config, "config", "", "Configuration path to generate")
-	flag.StringVar(&template, "template", "", "Configuration source template")
+	flag.StringVar(&configPath, "config", "", "Configuration path to generate")
+	flag.StringVar(&templatePath, "template", "", "Configuration source template")
 	flag.StringVar(&notify, "notify", "", "Kubernetes API server URL")
 	flag.BoolVar(&showVersion, "version", false, "Show version")
 	flag.Parse()
@@ -42,7 +42,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	if _, err := os.Stat(template); err != nil {
+	if _, err := os.Stat(templatePath); err != nil {
 		log.Fatalf("Template not defined or doesn't exist")
 	}
 
@@ -50,7 +50,7 @@ func main() {
 		log.Fatalf("Notifier cannot be empty")
 	}
 
-	if f, err := os.OpenFile(config, os.O_WRONLY|os.O_CREATE, 0644); err != nil {
+	if f, err := os.OpenFile(configPath, os.O_WRONLY|os.O_CREATE, 0644); err != nil {
 		log.Fatalf("Cannot open configuration file to write: %v", err)
 	} else {
 		f.Close()
@@ -66,7 +66,11 @@ func main() {
 		log.Fatalf("Couldn't connect with Kubernetes API server: %s", err)
 	}
 
-	client.AddTemplate(NewTemplate(template, config))
+	if err := initServerNameTemplates(); err != nil {
+		log.Fatalf("Couldn't initialize server name templates: %s", err)
+	}
+
+	client.AddTemplate(NewTemplate(templatePath, configPath))
 	client.AddNotifier(notifier)
 
 	if err := client.Watch(); err != nil {
