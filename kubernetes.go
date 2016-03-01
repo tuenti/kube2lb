@@ -111,7 +111,7 @@ func (c *KubernetesClient) AddNotifier(n Notifier) {
 func (c *KubernetesClient) Notify() {
 	for _, n := range c.notifiers {
 		if err := n.Notify(); err != nil {
-			log.Printf("Couldn't notify: %s\n", err)
+			log.Printf("Couldn't notify: %s", err)
 		}
 	}
 }
@@ -123,7 +123,7 @@ func (c *KubernetesClient) AddTemplate(t *Template) {
 func (c *KubernetesClient) ExecuteTemplates(info *ClusterInformation) {
 	for _, t := range c.templates {
 		if err := t.Execute(info); err != nil {
-			log.Printf("Couldn't write template: %s\n", err)
+			log.Printf("Couldn't write template: %s", err)
 		}
 	}
 }
@@ -147,7 +147,7 @@ func (c *KubernetesClient) getServices(namespace string) ([]ServiceInformation, 
 	si := c.client.Services(api.NamespaceAll)
 	services, err := si.List(options.LabelSelector)
 	if err != nil {
-		return nil, fmt.Errorf("Couldn't get services: ", err)
+		return nil, fmt.Errorf("Couldn't get services: %s", err)
 	}
 	servicesInformation := make([]ServiceInformation, 0, len(services.Items))
 	for _, s := range services.Items {
@@ -171,12 +171,12 @@ func (c *KubernetesClient) getServices(namespace string) ([]ServiceInformation, 
 func (c *KubernetesClient) Update() error {
 	nodeNames, err := c.getNodeNames()
 	if err != nil {
-		return fmt.Errorf("Couldn't get nodes: ", err)
+		return fmt.Errorf("Couldn't get nodes: %s", err)
 	}
 
 	services, err := c.getServices(api.NamespaceAll)
 	if err != nil {
-		return fmt.Errorf("Couldn't get services: ", err)
+		return fmt.Errorf("Couldn't get services: %s", err)
 	}
 
 	portsMap := make(map[int]bool)
@@ -205,7 +205,7 @@ func (c *KubernetesClient) Watch() error {
 	updater := NewUpdater(func() {
 		var err error
 		if err = c.Update(); err != nil {
-			log.Printf("Couldn't update state: ", err)
+			log.Printf("Couldn't update state: %s", err)
 		}
 		if isFirstUpdate {
 			if err != nil {
