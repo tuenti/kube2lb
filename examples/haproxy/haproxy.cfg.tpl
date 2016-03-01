@@ -15,6 +15,14 @@ defaults
 	option     dontlognull
 	option     forwardfor
 	http-reuse aggressive
+	retries    3
+	option     redispatch
+	timeout connect 3s
+	timeout client  200s
+	timeout client  30s
+	timeout server  200s
+	timeout tunnel  1h
+
 
 {{ range $i, $port := $ports }}
 frontend frontend_{{ $port }}
@@ -33,7 +41,7 @@ frontend frontend_{{ $port }}
 {{- $label := printf "%s_%s_%d" $service.Name $service.Namespace $service.Port }}
 backend backend_{{ $label }}
 	balance leastconn
-	option httpclose
+	option http-server-close
 	{{ range $i, $node := $nodes }}
 	server node{{ $i }} {{ $node }}:{{ $service.NodePort }} check{{ end }}
 {{ end }}
