@@ -23,6 +23,17 @@ defaults
 	timeout server  200s
 	timeout tunnel  1h
 
+frontend stats-frontend
+	mode http
+	bind __HAPROXY_STATS_BIND__
+	default_backend stats-backend
+
+backend stats-backend
+	mode http
+	stats enable
+	stats show-node
+	stats refresh 60s
+	stats uri /
 
 {{ range $i, $port := $ports }}
 frontend frontend_{{ $port }}
