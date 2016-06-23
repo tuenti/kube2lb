@@ -4,12 +4,12 @@ go:
   - 1.6
 
 before_script:
-  - go vet ./...
+  - go vet .
 
 install:
-  - export GOPATH="${TRAVIS_BUILD_DIR}/Godeps/_workspace:$GOPATH"
-  - export PATH="${TRAVIS_BUILD_DIR}/Godeps/_workspace/bin:$PATH"
+  - export GOPATH="${TRAVIS_BUILD_DIR}/vendor:$GOPATH"
+  - export PATH="${TRAVIS_BUILD_DIR}/vendor/bin:$PATH"
 
 script:
   - make
-  - go test ./...
+  - go test .
