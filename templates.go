@@ -62,6 +62,7 @@ type ServiceInformation struct {
 	Namespace string
 	Port      int
 	NodePort  int
+	External  []string
 }
 
 type ClusterInformation struct {
@@ -82,6 +83,18 @@ func NewTemplate(source, path string) *Template {
 	}
 }
 
+func removeDuplicated(names []string) []string {
+	seen := make(map[string]interface{})
+	for _, name := range names {
+		seen[name] = nil
+	}
+	uniq := make([]string, 0, len(seen))
+	for k := range seen {
+		uniq = append(uniq, k)
+	}
+	return uniq
+}
+
 func generateServerNames(s ServiceInformation, domain string) []string {
 	serverNames := make([]string, len(serverNameTemplates))
 	for i, t := range serverNameTemplates {
@@ -93,7 +106,7 @@ func generateServerNames(s ServiceInformation, domain string) []string {
 		t.Execute(&serverName, data)
 		serverNames[i] = serverName.String()
 	}
-	return serverNames
+	return removeDuplicated(append(serverNames, s.External...))
 }
 
 var nodeNameReplacer = strings.NewReplacer(".", "_")

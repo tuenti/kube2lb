@@ -19,6 +19,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	api "k8s.io/kubernetes/pkg/api"
@@ -39,6 +40,10 @@ type KubernetesClient struct {
 
 	domain string
 }
+
+const (
+	ExternalDomainsAnnotation = "kube2lb/external-domains"
+)
 
 func getClientConfig(kubecfg, apiserver string) (*client.Config, error) {
 	if apiserver == "" && kubecfg == "" {
@@ -151,6 +156,10 @@ func (c *KubernetesClient) getServices(namespace string) ([]ServiceInformation, 
 	}
 	servicesInformation := make([]ServiceInformation, 0, len(services.Items))
 	for _, s := range services.Items {
+		var external []string
+		if domains, ok := s.ObjectMeta.Annotations[ExternalDomainsAnnotation]; ok && len(domains) > 0 {
+			external = strings.Split(domains, ",")
+		}
 		switch s.Spec.Type {
 		case api.ServiceTypeNodePort, api.ServiceTypeLoadBalancer:
 			for _, port := range s.Spec.Ports {
@@ -160,6 +169,7 @@ func (c *KubernetesClient) getServices(namespace string) ([]ServiceInformation, 
 						Namespace: s.Namespace,
 						Port:      port.Port,
 						NodePort:  port.NodePort,
+						External:  external,
 					},
 				)
 			}
