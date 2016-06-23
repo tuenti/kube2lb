@@ -54,5 +54,5 @@ backend backend_{{ $label }}
 	balance leastconn
 	option http-server-close
 	{{ range $i, $node := $nodes }}
-	server node{{ $i }} {{ $node }}:{{ $service.NodePort }} check{{ end }}
+	server {{ EscapeNode $node }} {{ $node }}:{{ $service.NodePort }} check{{ end }}
 {{ end }}
