@@ -71,11 +71,6 @@ and another one with the default names used by kubernetes:
 ```
 kube2lb ... -server-name-templates "{{ .Service.Name }}.example.com,{{ .Service.Name }}.{{ .Service.Namespace }}.svc.{{ .Domain }}"
 ```
-And in the configuration file template:
-```
-{{ range $serverName := ServerNames $service $domain }}
-acl svc_{{ $label }} hdr(host) -i {{ $serverName }}{{ end }}
-```
 
 Additional server names can be added also as a comma-sepparated list in the
 `kube2lb/external-domains` annotation in the service definition, e.g:
@@ -84,8 +79,19 @@ apiVersion: v1
 kind: Service
 metadata:
   annotations:
-    kube2lb/external-domains: test.example.com,^(test1|test2)\.example\.(com|net)$
+    kube2lb/external-domains: test.example.com,~^(test1|test2)\.example\.(com|net)$
 ...
+```
+
+Use `~` to indicate that it must be handled as a regular expression.
+
+And in the configuration file template:
+```
+{{ range $serverName := ServerNames $service $domain }}
+{{- if $serverName.IsRegexp }}
+acl svc_{{ $label }} hdr_reg(host) {{ $serverName.Regexp }}{{- else }}
+acl svc_{{ $label }} hdr(host) -i {{ $serverName }}{{- end }}
+{{- end }}
 ```
 
 `kube2lb` can be used with any service that is configured with configuration

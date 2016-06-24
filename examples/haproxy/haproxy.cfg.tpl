@@ -42,7 +42,13 @@ frontend frontend_{{ $port }}
 {{- if eq $service.Port $port }}
 {{- $label := printf "%s_%s_%d" $service.Name $service.Namespace $service.Port }}
 	{{ range $serverName := ServerNames $service $domain }}
-	acl svc_{{ $label }} hdr(host) -i {{ $serverName }}{{ end }}
+	{{- if $serverName.IsRegexp }}
+	acl svc_{{ $label }} hdr_reg(host) {{ $serverName.Regexp }}
+	{{- else }}
+	acl svc_{{ $label }} hdr(host) -i {{ $serverName }}
+	{{- end }}
+	{{- end }}
+
 	use_backend backend_{{ $label }} if svc_{{ $label }}
 {{- end }}
 {{- end }}
