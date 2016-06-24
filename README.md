@@ -77,6 +77,17 @@ And in the configuration file template:
 acl svc_{{ $label }} hdr(host) -i {{ $serverName }}{{ end }}
 ```
 
+Additional server names can be added also as a comma-sepparated list in the
+`kube2lb/external-domains` annotation in the service definition, e.g:
+```
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kube2lb/external-domains: test.example.com,^(test1|test2)\.example\.(com|net)$
+...
+```
+
 `kube2lb` can be used with any service that is configured with configuration
 files and can do online configuration reload.
 
