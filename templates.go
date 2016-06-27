@@ -33,6 +33,16 @@ func init() {
 	flag.StringVar(&serverNameTemplatesArg, "server-name-templates", defaultServerNameTemplate, "Comma-separated list of go templates to generate server names")
 }
 
+type serverName string
+
+func (s serverName) IsRegexp() bool {
+	return strings.HasPrefix(string(s), "~")
+}
+
+func (s serverName) Regexp() string {
+	return strings.TrimPrefix(string(s), "~")
+}
+
 func parseServerNameTemplatesArg(templatesArg string) ([]*template.Template, error) {
 	if len(templatesArg) == 0 {
 		templatesArg = defaultServerNameTemplate
@@ -95,7 +105,7 @@ func removeDuplicated(names []string) []string {
 	return uniq
 }
 
-func generateServerNames(s ServiceInformation, domain string) []string {
+func generateServerNames(s ServiceInformation, domain string) []serverName {
 	serverNames := make([]string, len(serverNameTemplates))
 	for i, t := range serverNameTemplates {
 		data := struct {
@@ -106,7 +116,13 @@ func generateServerNames(s ServiceInformation, domain string) []string {
 		t.Execute(&serverName, data)
 		serverNames[i] = serverName.String()
 	}
-	return removeDuplicated(append(serverNames, s.External...))
+	return func() []serverName {
+		var sns []serverName
+		for _, n := range append(removeDuplicated(serverNames), s.External...) {
+			sns = append(sns, serverName(n))
+		}
+		return sns
+	}()
 }
 
 var nodeNameReplacer = strings.NewReplacer(".", "_")
