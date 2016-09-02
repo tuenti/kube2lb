@@ -36,11 +36,12 @@ backend stats-backend
 	stats uri /
 
 {{ range $i, $port := $ports }}
-frontend frontend_{{ $port }}
-	bind *:{{ $port }}
+frontend frontend_{{ $port.String }}
+	bind *:{{ $port.Port }}
 {{- range $i, $service := $services }}
-{{- if eq $service.Port $port }}
-{{- $label := printf "%s_%s_%d" $service.Name $service.Namespace $service.Port }}
+{{- if eq $service.Port.String $port.String }}
+{{- $label := printf "%s_%s_%s" $service.Name $service.Namespace $service.Port }}
+{{- if eq $port.Mode "http" }}
 	{{ range $serverName := ServerNames $service $domain }}
 	{{- if $serverName.IsRegexp }}
 	acl svc_{{ $label }} hdr_reg(host) {{ $serverName.Regexp }}
@@ -48,17 +49,27 @@ frontend frontend_{{ $port }}
 	acl svc_{{ $label }} hdr(host) -i {{ $serverName }}
 	{{- end }}
 	{{- end }}
-
 	use_backend backend_{{ $label }} if svc_{{ $label }}
+{{- end }}
+{{- if eq $port.Mode "tcp" }}
+	mode tcp
+
+	use_backend backend_{{ $label }}
+{{- end }}
 {{- end }}
 {{- end }}
 {{ end }}
 
 {{- range $i, $service := $services }}
-{{- $label := printf "%s_%s_%d" $service.Name $service.Namespace $service.Port }}
+{{- $label := printf "%s_%s_%s" $service.Name $service.Namespace $service.Port }}
 backend backend_{{ $label }}
 	balance leastconn
+{{- if eq $service.Port.Mode "http" }}
 	option http-server-close
+{{- end }}
+{{- if eq $service.Port.Mode "tcp" }}
+	mode tcp
+{{- end }}
 	{{ range $i, $node := $nodes }}
 	server {{ EscapeNode $node }} {{ $node }}:{{ $service.NodePort }} check{{ end }}
 {{ end }}

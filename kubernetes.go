@@ -17,6 +17,8 @@ limitations under the License.
 package main
 
 import (
+	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"strings"
@@ -27,6 +29,12 @@ import (
 	"k8s.io/kubernetes/pkg/client/unversioned/clientcmd"
 	"k8s.io/kubernetes/pkg/watch"
 )
+
+var defaultPortMode = "http"
+
+func init() {
+	flag.StringVar(&defaultPortMode, "default-port-mode", defaultPortMode, "Default mode for service ports")
+}
 
 type KubernetesClient struct {
 	client       *client.Client
@@ -43,6 +51,7 @@ type KubernetesClient struct {
 
 const (
 	ExternalDomainsAnnotation = "kube2lb/external-domains"
+	PortModeAnnotation        = "kube2lb/port-mode"
 )
 
 func getClientConfig(kubecfg, apiserver string) (*client.Config, error) {
@@ -160,16 +169,31 @@ func (c *KubernetesClient) getServices(namespace string) ([]ServiceInformation, 
 		if domains, ok := s.ObjectMeta.Annotations[ExternalDomainsAnnotation]; ok && len(domains) > 0 {
 			external = strings.Split(domains, ",")
 		}
+		var portModes map[string]string
+		if modes, ok := s.ObjectMeta.Annotations[PortModeAnnotation]; ok && len(modes) > 0 {
+			err := json.Unmarshal([]byte(modes), &portModes)
+			if err != nil {
+				log.Printf("Couldn't parse %s annotation for %s service", PortModeAnnotation, s.Name)
+			}
+		}
 		switch s.Spec.Type {
 		case api.ServiceTypeNodePort, api.ServiceTypeLoadBalancer:
 			for _, port := range s.Spec.Ports {
+				mode, ok := portModes[port.Name]
+				if !ok {
+					mode = defaultPortMode
+				}
 				servicesInformation = append(servicesInformation,
 					ServiceInformation{
 						Name:      s.Name,
 						Namespace: s.Namespace,
-						Port:      port.Port,
-						NodePort:  port.NodePort,
-						External:  external,
+						Port: PortSpec{
+							port.Port,
+							strings.ToLower(mode),
+							strings.ToLower(string(port.Protocol)),
+						},
+						NodePort: port.NodePort,
+						External: external,
 					},
 				)
 			}
@@ -189,11 +213,11 @@ func (c *KubernetesClient) Update() error {
 		return fmt.Errorf("Couldn't get services: %s", err)
 	}
 
-	portsMap := make(map[int]bool)
+	portsMap := make(map[PortSpec]bool)
 	for _, service := range services {
 		portsMap[service.Port] = true
 	}
-	ports := make([]int, 0, len(portsMap))
+	ports := make([]PortSpec, 0, len(portsMap))
 	for port := range portsMap {
 		ports = append(ports, port)
 	}

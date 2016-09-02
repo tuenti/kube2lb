@@ -48,6 +48,8 @@ make
 
 ## Configuration details
 
+### Kubeconfig
+
 Kubernetes connections to the API are done using the same libraries as other
 tools as `kubectl` or `kube2sky` and following similar principles.
 
@@ -57,6 +59,8 @@ Configuration is taken in this order:
 1. Configuration file (`-kubecfg` flag, api server endpoint can be overriden
    with `-apiserver`)
 1. In cluster configuration, useful if `kube2lb` is deployed in a pod
+
+### Server names
 
 Templates receive the list of nodes, services and the domain passed with the
 `-domain` flag.
@@ -94,8 +98,35 @@ acl svc_{{ $label }} hdr(host) -i {{ $serverName }}{{- end }}
 {{- end }}
 ```
 
+### Port modes
+
+Load balancers use to differenciate TCP and HTTP connections, for HTTP
+connections they have additional features as the possibility of choosing a
+backend depending on an specific HTTP header. `kube2lb` allows to declare
+different modes for some ports.
+
+Default mode can be changed with the `-default-port-mode` flag, it is 
+http by default.
+
+An annotation can be used to declare different modes. e.g:
+```
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kube2lb/port-mode: |
+      { "mysql": "tcp" }
+...
+```
+The annotation must be a string to string map represented as valid JSON, with
+the port name as key and the mode as value. Ports must declare their names
+in order to use this feature.
+
+### Notifiers
+
 `kube2lb` can be used with any service that is configured with configuration
-files and can do online configuration reload.
+files and can do online configuration reload. To notify the service that it
+must reload its configuration a notifier needs to be configured.
 
 By now these notifier definitions can be used:
 
