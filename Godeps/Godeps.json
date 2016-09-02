@@ -1,6 +1,6 @@
 {
 	"ImportPath": "github.com/jsoriano/kube2lb",
-	"GoVersion": "go1.6",
+	"GoVersion": "go1.7",
 	"Deps": [
 		{
 			"ImportPath": "bitbucket.org/ww/goautoneg",
