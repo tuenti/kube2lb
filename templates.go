@@ -19,6 +19,7 @@ package main
 import (
 	"bytes"
 	"flag"
+	"fmt"
 	"os"
 	"path"
 	"strings"
@@ -67,17 +68,27 @@ func initServerNameTemplates() (err error) {
 	return err
 }
 
+type PortSpec struct {
+	Port     int
+	Mode     string
+	Protocol string
+}
+
+func (s PortSpec) String() string {
+	return fmt.Sprintf("%d_%s_%s", s.Port, s.Protocol, s.Mode)
+}
+
 type ServiceInformation struct {
 	Name      string
 	Namespace string
-	Port      int
+	Port      PortSpec
 	NodePort  int
 	External  []string
 }
 
 type ClusterInformation struct {
 	Services []ServiceInformation
-	Ports    []int
+	Ports    []PortSpec
 	Nodes    []string
 	Domain   string
 }
@@ -131,6 +142,8 @@ func (t *Template) Execute(info *ClusterInformation) error {
 	funcMap := template.FuncMap{
 		"ServerNames": generateServerNames,
 		"EscapeNode":  nodeNameReplacer.Replace,
+		"ToUpper":     strings.ToUpper,
+		"ToLower":     strings.ToLower,
 	}
 
 	// template.Execute will use the base name of t.Source
