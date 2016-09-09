@@ -1,4 +1,4 @@
-VERSION := "1.0"
+VERSION := 1.1.0
 PACKAGE := github.com/tuenti/kube2lb
 ROOT_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 GOLANG_DOCKER := golang:1.7.0
