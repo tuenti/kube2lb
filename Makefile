@@ -1,7 +1,7 @@
 VERSION := 1.1.0
 PACKAGE := github.com/tuenti/kube2lb
 ROOT_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
-GOLANG_DOCKER := golang:1.7.0
+GOLANG_DOCKER := golang:1.7.3
 
 all:
 	docker run -v $(ROOT_DIR):/go/src/$(PACKAGE) -w /go/src/$(PACKAGE) -it --rm $(GOLANG_DOCKER) go build -ldflags "-X main.version=$(VERSION)"
