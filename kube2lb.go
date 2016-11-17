@@ -33,7 +33,7 @@ func main() {
 	flag.StringVar(&domain, "domain", "local", "DNS domain for the cluster")
 	flag.StringVar(&configPath, "config", "", "Configuration path to generate")
 	flag.StringVar(&templatePath, "template", "", "Configuration source template")
-	flag.StringVar(&notify, "notify", "", "Kubernetes API server URL")
+	flag.StringVar(&notify, "notify", "", "Notification configuration")
 	flag.BoolVar(&showVersion, "version", false, "Show version")
 	flag.Parse()
 
