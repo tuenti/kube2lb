@@ -24,10 +24,12 @@ import (
 	"strings"
 	"time"
 
-	api "k8s.io/kubernetes/pkg/api"
-	client "k8s.io/kubernetes/pkg/client/unversioned"
-	"k8s.io/kubernetes/pkg/client/unversioned/clientcmd"
-	"k8s.io/kubernetes/pkg/watch"
+	"k8s.io/client-go/1.4/kubernetes"
+	"k8s.io/client-go/1.4/pkg/api"
+	"k8s.io/client-go/1.4/pkg/api/v1"
+	"k8s.io/client-go/1.4/pkg/watch"
+	"k8s.io/client-go/1.4/rest"
+	"k8s.io/client-go/1.4/tools/clientcmd"
 )
 
 var defaultPortMode = "http"
@@ -37,8 +39,8 @@ func init() {
 }
 
 type KubernetesClient struct {
-	client       *client.Client
-	clientConfig *client.Config
+	config    *rest.Config
+	clientset *kubernetes.Clientset
 
 	nodeWatcher    watch.Interface
 	serviceWatcher watch.Interface
@@ -54,39 +56,23 @@ const (
 	PortModeAnnotation        = "kube2lb/port-mode"
 )
 
-func getClientConfig(kubecfg, apiserver string) (*client.Config, error) {
-	if apiserver == "" && kubecfg == "" {
-		if config, err := client.InClusterConfig(); err == nil {
-			return config, nil
-		} else {
-			return nil, err
-		}
-	}
-	if apiserver != "" && kubecfg == "" {
-		return &client.Config{Host: apiserver}, nil
-	}
-	overrides := &clientcmd.ConfigOverrides{}
-	overrides.ClusterInfo.Server = apiserver
-	rules := clientcmd.NewDefaultClientConfigLoadingRules()
-	rules.ExplicitPath = kubecfg
-	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, overrides).ClientConfig()
-}
-
 func NewKubernetesClient(kubecfg, apiserver, domain string) (*KubernetesClient, error) {
-	var (
-		config *client.Config
-		err    error
-	)
+	config, err := clientcmd.BuildConfigFromFlags(apiserver, kubecfg)
+	if err != nil {
+		return nil, err
+	}
 
-	if config, err = getClientConfig(kubecfg, apiserver); err != nil {
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
 		return nil, err
 	}
 
 	kc := &KubernetesClient{
-		clientConfig: config,
-		notifiers:    make([]Notifier, 0, 10),
-		templates:    make([]*Template, 0, 10),
-		domain:       domain,
+		config:    config,
+		clientset: clientset,
+		notifiers: make([]Notifier, 0, 10),
+		templates: make([]*Template, 0, 10),
+		domain:    domain,
 	}
 
 	if err := kc.connect(); err != nil {
@@ -96,22 +82,18 @@ func NewKubernetesClient(kubecfg, apiserver, domain string) (*KubernetesClient, 
 }
 
 func (c *KubernetesClient) connect() (err error) {
-	log.Printf("Using %s for kubernetes master", c.clientConfig.Host)
-
-	if c.client, err = client.New(c.clientConfig); err != nil {
-		return
-	}
+	log.Printf("Using %s for kubernetes master", c.config.Host)
 
 	options := api.ListOptions{}
 
-	ni := c.client.Nodes()
-	c.nodeWatcher, err = ni.Watch(options.LabelSelector, options.FieldSelector, "")
+	ni := c.clientset.Core().Nodes()
+	c.nodeWatcher, err = ni.Watch(options)
 	if err != nil {
 		return fmt.Errorf("Couldn't watch events on nodes: %v", err)
 	}
 
-	si := c.client.Services(api.NamespaceAll)
-	c.serviceWatcher, err = si.Watch(options.LabelSelector, options.FieldSelector, "")
+	si := c.clientset.Core().Services(api.NamespaceAll)
+	c.serviceWatcher, err = si.Watch(options)
 	if err != nil {
 		return fmt.Errorf("Couldn't watch events on services: %v", err)
 	}
@@ -144,8 +126,8 @@ func (c *KubernetesClient) ExecuteTemplates(info *ClusterInformation) {
 
 func (c *KubernetesClient) getNodeNames() ([]string, error) {
 	options := api.ListOptions{}
-	ni := c.client.Nodes()
-	nodes, err := ni.List(options.LabelSelector, options.FieldSelector)
+	ni := c.clientset.Core().Nodes()
+	nodes, err := ni.List(options)
 	if err != nil {
 		return nil, err
 	}
@@ -158,8 +140,8 @@ func (c *KubernetesClient) getNodeNames() ([]string, error) {
 
 func (c *KubernetesClient) getServices(namespace string) ([]ServiceInformation, error) {
 	options := api.ListOptions{}
-	si := c.client.Services(api.NamespaceAll)
-	services, err := si.List(options.LabelSelector)
+	si := c.clientset.Core().Services(api.NamespaceAll)
+	services, err := si.List(options)
 	if err != nil {
 		return nil, fmt.Errorf("Couldn't get services: %s", err)
 	}
@@ -177,7 +159,7 @@ func (c *KubernetesClient) getServices(namespace string) ([]ServiceInformation, 
 			}
 		}
 		switch s.Spec.Type {
-		case api.ServiceTypeNodePort, api.ServiceTypeLoadBalancer:
+		case v1.ServiceTypeNodePort, v1.ServiceTypeLoadBalancer:
 			for _, port := range s.Spec.Ports {
 				mode, ok := portModes[port.Name]
 				if !ok {

@@ -69,7 +69,7 @@ func initServerNameTemplates() (err error) {
 }
 
 type PortSpec struct {
-	Port     int
+	Port     int32
 	Mode     string
 	Protocol string
 }
@@ -82,7 +82,7 @@ type ServiceInformation struct {
 	Name      string
 	Namespace string
 	Port      PortSpec
-	NodePort  int
+	NodePort  int32
 	External  []string
 }
 
