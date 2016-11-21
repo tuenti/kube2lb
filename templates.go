@@ -82,6 +82,7 @@ type ServiceInformation struct {
 	Name      string
 	Namespace string
 	Port      PortSpec
+	IPs       []string
 	NodePort  int32
 	External  []string
 }

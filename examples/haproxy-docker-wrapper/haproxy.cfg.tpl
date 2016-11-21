@@ -1,4 +1,3 @@
-{{ $nodes := .Nodes -}}
 {{ $services := .Services -}}
 {{ $domain := .Domain -}}
 {{ $ports := .Ports -}}
@@ -69,6 +68,6 @@ backend backend_{{ $label }}
 {{- if eq $service.Port.Mode "tcp" }}
 	mode tcp
 {{- end }}
-	{{ range $i, $node := $nodes }}
-	server {{ EscapeNode $node }} {{ $node }}:{{ $service.NodePort }} check{{ end }}
+	{{ range $i, $ip := $service.IPs }}
+	server {{ EscapeNode $ip }} {{ $ip }}:{{ $service.Port.Port }} check{{ end }}
 {{ end }}
