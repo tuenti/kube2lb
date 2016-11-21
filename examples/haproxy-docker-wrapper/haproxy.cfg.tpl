@@ -68,6 +68,6 @@ backend backend_{{ $label }}
 {{- if eq $service.Port.Mode "tcp" }}
 	mode tcp
 {{- end }}
-	{{ range $i, $ip := $service.IPs }}
-	server {{ EscapeNode $ip }} {{ $ip }}:{{ $service.Port.Port }} check{{ end }}
+	{{ range $i, $endpoint := $service.Endpoints }}
+	server {{ EscapeNode $endpoint }} {{ $endpoint }} check{{ end }}
 {{ end }}

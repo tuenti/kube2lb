@@ -145,34 +145,44 @@ func (c *KubernetesClient) getNodeNames() ([]string, error) {
 	return nodeNames, nil
 }
 
-func (c *KubernetesClient) getEndpointsMap(namespace, service string) (map[int32][]string, error) {
-	endpoints, err := c.clientset.Core().Endpoints(namespace).Get(service)
-	if err != nil {
-		return nil, err
-	}
+func (c *KubernetesClient) getEndpointsMap(endpoints *v1.Endpoints) map[int32][]string {
 	m := make(map[int32][]string)
 	for _, subset := range endpoints.Subsets {
 		for _, port := range subset.Ports {
-			var ips []string
+			var addresses []string
 			for _, address := range subset.Addresses {
 				if address.IP == "" {
-					break
+					continue
 				}
-				ips = append(ips, address.IP)
+				addresses = append(addresses, fmt.Sprintf("%s:%d", address.IP, port.Port))
 			}
-			m[port.Port] = ips
+			m[port.Port] = addresses
 		}
 	}
-	return m, nil
+	return m
 }
 
 func (c *KubernetesClient) getServices(namespace string) ([]ServiceInformation, error) {
 	options := api.ListOptions{}
+
 	si := c.clientset.Core().Services(api.NamespaceAll)
 	services, err := si.List(options)
 	if err != nil {
 		return nil, fmt.Errorf("Couldn't get services: %s", err)
 	}
+
+	ei := c.clientset.Core().Endpoints(api.NamespaceAll)
+	endpoints, err := ei.List(options)
+	if err != nil {
+		return nil, fmt.Errorf("Couldn't get endpoints: %s", err)
+	}
+
+	endpointsMap := make(map[string]*v1.Endpoints)
+	for i, endpoint := range endpoints.Items {
+		k := fmt.Sprintf("%s_%s", endpoint.Namespace, endpoint.Name)
+		endpointsMap[k] = &endpoints.Items[i]
+	}
+
 	servicesInformation := make([]ServiceInformation, 0, len(services.Items))
 	for _, s := range services.Items {
 		var external []string
@@ -186,10 +196,15 @@ func (c *KubernetesClient) getServices(namespace string) ([]ServiceInformation, 
 				log.Printf("Couldn't parse %s annotation for %s service", PortModeAnnotation, s.Name)
 			}
 		}
-		endpoints, err := c.getEndpointsMap(s.Namespace, s.Name)
-		if err != nil {
-			return nil, err
+		endpointsKey := fmt.Sprintf("%s_%s", s.Namespace, s.Name)
+		endpoints, found := endpointsMap[endpointsKey]
+		if !found {
+			log.Printf("Couldn't find endpoints for %s in %s?", s.Name, s.Namespace)
+			continue
 		}
+
+		endpointsPortsMap := c.getEndpointsMap(endpoints)
+
 		switch s.Spec.Type {
 		case v1.ServiceTypeNodePort, v1.ServiceTypeLoadBalancer:
 			for _, port := range s.Spec.Ports {
@@ -206,9 +221,9 @@ func (c *KubernetesClient) getServices(namespace string) ([]ServiceInformation, 
 							strings.ToLower(mode),
 							strings.ToLower(string(port.Protocol)),
 						},
-						IPs:      endpoints[port.Port],
-						NodePort: port.NodePort,
-						External: external,
+						Endpoints: endpointsPortsMap[port.TargetPort.IntVal],
+						NodePort:  port.NodePort,
+						External:  external,
 					},
 				)
 			}
@@ -275,7 +290,7 @@ func (c *KubernetesClient) Watch() error {
 			}
 		case _, more = <-c.serviceWatcher.ResultChan():
 			updater.Signal()
-		case _, more = <-c.endpointsWatcher.ResultChan():
+		case e, more = <-c.endpointsWatcher.ResultChan():
 			updater.Signal()
 		}
 		if !more {
