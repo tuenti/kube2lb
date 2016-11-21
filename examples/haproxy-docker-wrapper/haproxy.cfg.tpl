@@ -69,5 +69,5 @@ backend backend_{{ $label }}
 	mode tcp
 {{- end }}
 	{{ range $i, $endpoint := $service.Endpoints }}
-	server {{ EscapeNode $endpoint }} {{ $endpoint }} check{{ end }}
+	server {{ EscapeNode $endpoint }} {{ $endpoint }} check inter 5s downinter 10s slowstart 60s{{ end }}
 {{ end }}
