@@ -145,23 +145,6 @@ func (c *KubernetesClient) getNodeNames() ([]string, error) {
 	return nodeNames, nil
 }
 
-func (c *KubernetesClient) getEndpointsMap(endpoints *v1.Endpoints) map[int32][]string {
-	m := make(map[int32][]string)
-	for _, subset := range endpoints.Subsets {
-		for _, port := range subset.Ports {
-			var addresses []string
-			for _, address := range subset.Addresses {
-				if address.IP == "" {
-					continue
-				}
-				addresses = append(addresses, fmt.Sprintf("%s:%d", address.IP, port.Port))
-			}
-			m[port.Port] = addresses
-		}
-	}
-	return m
-}
-
 func (c *KubernetesClient) getServices(namespace string) ([]ServiceInformation, error) {
 	options := api.ListOptions{}
 
@@ -177,11 +160,7 @@ func (c *KubernetesClient) getServices(namespace string) ([]ServiceInformation, 
 		return nil, fmt.Errorf("Couldn't get endpoints: %s", err)
 	}
 
-	endpointsMap := make(map[string]*v1.Endpoints)
-	for i, endpoint := range endpoints.Items {
-		k := fmt.Sprintf("%s_%s", endpoint.Namespace, endpoint.Name)
-		endpointsMap[k] = &endpoints.Items[i]
-	}
+	endpointsHelper := NewEndpointsHelper(endpoints)
 
 	servicesInformation := make([]ServiceInformation, 0, len(services.Items))
 	for _, s := range services.Items {
@@ -196,14 +175,12 @@ func (c *KubernetesClient) getServices(namespace string) ([]ServiceInformation, 
 				log.Printf("Couldn't parse %s annotation for %s service", PortModeAnnotation, s.Name)
 			}
 		}
-		endpointsKey := fmt.Sprintf("%s_%s", s.Namespace, s.Name)
-		endpoints, found := endpointsMap[endpointsKey]
-		if !found {
+
+		endpointsPortsMap := endpointsHelper.ServicePortsMap(&s)
+		if len(endpointsPortsMap) == 0 {
 			log.Printf("Couldn't find endpoints for %s in %s?", s.Name, s.Namespace)
 			continue
 		}
-
-		endpointsPortsMap := c.getEndpointsMap(endpoints)
 
 		switch s.Spec.Type {
 		case v1.ServiceTypeNodePort, v1.ServiceTypeLoadBalancer:
