@@ -176,14 +176,14 @@ func (c *KubernetesClient) getServices(namespace string) ([]ServiceInformation, 
 			}
 		}
 
-		endpointsPortsMap := endpointsHelper.ServicePortsMap(&s)
-		if len(endpointsPortsMap) == 0 {
-			log.Printf("Couldn't find endpoints for %s in %s?", s.Name, s.Namespace)
-			continue
-		}
-
 		switch s.Spec.Type {
 		case v1.ServiceTypeNodePort, v1.ServiceTypeLoadBalancer:
+			endpointsPortsMap := endpointsHelper.ServicePortsMap(&s)
+			if len(endpointsPortsMap) == 0 {
+				log.Printf("Couldn't find endpoints for %s in %s?", s.Name, s.Namespace)
+				continue
+			}
+
 			for _, port := range s.Spec.Ports {
 				mode, ok := portModes[port.Name]
 				if !ok {

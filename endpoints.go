@@ -22,6 +22,16 @@ import (
 	"k8s.io/client-go/1.4/pkg/api/v1"
 )
 
+type ServiceEndpoint struct {
+	Name string
+	IP   string
+	Port int32
+}
+
+func (e *ServiceEndpoint) String() string {
+	return fmt.Sprintf("%s:%d", e.IP, e.Port)
+}
+
 type EndpointsHelper struct {
 	endpointsMap map[string]*v1.Endpoints
 }
@@ -38,20 +48,28 @@ func NewEndpointsHelper(endpoints *v1.EndpointsList) *EndpointsHelper {
 	return &EndpointsHelper{endpointsMap}
 }
 
-func (h *EndpointsHelper) ServicePortsMap(s *v1.Service) map[int32][]string {
+func (h *EndpointsHelper) ServicePortsMap(s *v1.Service) map[int32][]ServiceEndpoint {
 	endpoints, found := h.endpointsMap[metaKey(s.ObjectMeta)]
 	if !found {
 		return nil
 	}
-	m := make(map[int32][]string)
+	m := make(map[int32][]ServiceEndpoint)
 	for _, subset := range endpoints.Subsets {
 		for _, port := range subset.Ports {
-			var addresses []string
+			var addresses []ServiceEndpoint
 			for _, address := range subset.Addresses {
 				if address.IP == "" {
 					continue
 				}
-				addresses = append(addresses, fmt.Sprintf("%s:%d", address.IP, port.Port))
+				name := address.IP
+				if address.TargetRef != nil {
+					name = address.TargetRef.Name
+				}
+				addresses = append(addresses, ServiceEndpoint{
+					Name: name,
+					IP:   address.IP,
+					Port: port.Port,
+				})
 			}
 			m[port.Port] = addresses
 		}
