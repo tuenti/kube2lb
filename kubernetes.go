@@ -42,8 +42,9 @@ type KubernetesClient struct {
 	config    *rest.Config
 	clientset *kubernetes.Clientset
 
-	nodeWatcher    watch.Interface
-	serviceWatcher watch.Interface
+	nodeWatcher      watch.Interface
+	serviceWatcher   watch.Interface
+	endpointsWatcher watch.Interface
 
 	notifiers []Notifier
 	templates []*Template
@@ -97,6 +98,12 @@ func (c *KubernetesClient) connect() (err error) {
 	if err != nil {
 		return fmt.Errorf("Couldn't watch events on services: %v", err)
 	}
+
+	ei := c.clientset.Core().Endpoints(api.NamespaceAll)
+	c.endpointsWatcher, err = ei.Watch(options)
+	if err != nil {
+		return fmt.Errorf("Couldn't watch events on endpoints: %v", err)
+	}
 	return
 }
 
@@ -140,11 +147,21 @@ func (c *KubernetesClient) getNodeNames() ([]string, error) {
 
 func (c *KubernetesClient) getServices(namespace string) ([]ServiceInformation, error) {
 	options := api.ListOptions{}
+
 	si := c.clientset.Core().Services(api.NamespaceAll)
 	services, err := si.List(options)
 	if err != nil {
 		return nil, fmt.Errorf("Couldn't get services: %s", err)
 	}
+
+	ei := c.clientset.Core().Endpoints(api.NamespaceAll)
+	endpoints, err := ei.List(options)
+	if err != nil {
+		return nil, fmt.Errorf("Couldn't get endpoints: %s", err)
+	}
+
+	endpointsHelper := NewEndpointsHelper(endpoints)
+
 	servicesInformation := make([]ServiceInformation, 0, len(services.Items))
 	for _, s := range services.Items {
 		var external []string
@@ -158,8 +175,15 @@ func (c *KubernetesClient) getServices(namespace string) ([]ServiceInformation, 
 				log.Printf("Couldn't parse %s annotation for %s service", PortModeAnnotation, s.Name)
 			}
 		}
+
 		switch s.Spec.Type {
 		case v1.ServiceTypeNodePort, v1.ServiceTypeLoadBalancer:
+			endpointsPortsMap := endpointsHelper.ServicePortsMap(&s)
+			if len(endpointsPortsMap) == 0 {
+				log.Printf("Couldn't find endpoints for %s in %s?", s.Name, s.Namespace)
+				continue
+			}
+
 			for _, port := range s.Spec.Ports {
 				mode, ok := portModes[port.Name]
 				if !ok {
@@ -174,8 +198,9 @@ func (c *KubernetesClient) getServices(namespace string) ([]ServiceInformation, 
 							strings.ToLower(mode),
 							strings.ToLower(string(port.Protocol)),
 						},
-						NodePort: port.NodePort,
-						External: external,
+						Endpoints: endpointsPortsMap[port.TargetPort.IntVal],
+						NodePort:  port.NodePort,
+						External:  external,
 					},
 				)
 			}
@@ -241,6 +266,8 @@ func (c *KubernetesClient) Watch() error {
 				updater.Signal()
 			}
 		case _, more = <-c.serviceWatcher.ResultChan():
+			updater.Signal()
+		case e, more = <-c.endpointsWatcher.ResultChan():
 			updater.Signal()
 		}
 		if !more {

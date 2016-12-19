@@ -3,7 +3,7 @@
 {{ $domain := .Domain -}}
 {{ range $i, $service := $services -}}
 {{ range $j, $serverName := ServerNames $service $domain -}}
-http://{{ $serverName }}:{{ $service.Port }} {
+http://{{ $serverName }}:{{ $service.Port.Port }} {
 	log / stdout "{host} {remote} - [{when}] \"{method} {path} {proto}\" {status} {size} \"{>Referer}\" \"{>User-Agent}\" \"{latency}\""
 	proxy /{{ range $i, $node := $nodes }} {{ $node }}:{{ $service.NodePort }}{{ end }} {
 		policy least_conn

@@ -82,6 +82,7 @@ type ServiceInformation struct {
 	Name      string
 	Namespace string
 	Port      PortSpec
+	Endpoints []ServiceEndpoint
 	NodePort  int32
 	External  []string
 }
@@ -136,7 +137,7 @@ func generateServerNames(s ServiceInformation, domain string) []serverName {
 	}()
 }
 
-var nodeNameReplacer = strings.NewReplacer(".", "_")
+var nodeNameReplacer = strings.NewReplacer(".", "_", ":", "_")
 
 func (t *Template) Execute(info *ClusterInformation) error {
 	funcMap := template.FuncMap{
