@@ -3,7 +3,7 @@
 {{ $ports := .Ports -}}
 global
 	log __SYSLOG__   local0 notice
-	maxconn 65536
+	maxconn __HAPROXY_MAXCONN__
 	daemon
 
 defaults
@@ -20,6 +20,7 @@ defaults
 	timeout client  30s
 	timeout server  200s
 	timeout tunnel  1h
+	maxconn __HAPROXY_MAXCONN__
 
 frontend stats-frontend
 	mode http
