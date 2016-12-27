@@ -5,6 +5,16 @@ global
 	log __SYSLOG__   local0 notice
 	maxconn __HAPROXY_MAXCONN__
 	daemon
+{{- if gt __HAPROXY_NBPROC__ 1 }}
+	nbproc __HAPROXY_NBPROC__
+{{- range $, $i := IntRange __HAPROXY_NBPROC__ 1 1 }}
+	cpu-map {{ $i }} {{ $i }}
+	stats socket /var/lib/haproxy/socket{{ $i }} process {{ $i }} mode 600 level admin
+{{- end }}
+{{- else }}
+    stats socket /var/lib/haproxy/socket mode 600 level admin
+{{- end }}
+
 
 defaults
 	log        global
@@ -21,18 +31,6 @@ defaults
 	timeout server  200s
 	timeout tunnel  1h
 	maxconn __HAPROXY_MAXCONN__
-
-frontend stats-frontend
-	mode http
-	bind __HAPROXY_STATS_BIND__
-	default_backend stats-backend
-
-backend stats-backend
-	mode http
-	stats enable
-	stats show-node
-	stats refresh 60s
-	stats uri /
 
 {{ range $i, $port := $ports }}
 frontend frontend_{{ $port.String }}

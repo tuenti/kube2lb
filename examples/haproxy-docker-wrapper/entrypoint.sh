@@ -11,7 +11,7 @@ frontend nothing
 " > $CONFFILE
 
 sed -i $TEMPLATE \
-	-e "s/__HAPROXY_STATS_BIND__/$HAPROXY_STATS_BIND/" \
+	-e "s/__HAPROXY_NBPROC__/$HAPROXY_NBPROC/" \
 	-e "s/__HAPROXY_MAXCONN__/$HAPROXY_MAXCONN/" \
 	-e "s/__SYSLOG__/$SYSLOG/"
 
