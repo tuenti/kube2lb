@@ -30,11 +30,11 @@ defaults
 	timeout client  30s
 	timeout server  200s
 	timeout tunnel  1h
-	maxconn __HAPROXY_MAXCONN__
 
 {{ range $i, $port := $ports }}
 frontend frontend_{{ $port.String }}
 	bind *:{{ $port.Port }}
+	maxconn __HAPROXY_FRONTEND_MAXCONN__
 {{- range $i, $service := $services }}
 {{- if eq $service.Port.String $port.String }}
 {{- $label := printf "%s_%s_%s" $service.Name $service.Namespace $service.Port }}
@@ -68,5 +68,5 @@ backend backend_{{ $label }}
 	mode tcp
 {{- end }}
 	{{ range $i, $endpoint := $service.Endpoints }}
-	server {{ EscapeNode $endpoint.Name }} {{ $endpoint }} check inter 5s downinter 10s slowstart 60s{{ end }}
+	server {{ EscapeNode $endpoint.Name }} {{ $endpoint }} maxconn __HAPROXY_SERVER_MAXCONN__ check inter 5s downinter 10s slowstart 60s{{ end }}
 {{ end }}
