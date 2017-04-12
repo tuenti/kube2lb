@@ -24,12 +24,12 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/client-go/1.4/kubernetes"
-	"k8s.io/client-go/1.4/pkg/api"
-	"k8s.io/client-go/1.4/pkg/api/v1"
-	"k8s.io/client-go/1.4/pkg/watch"
-	"k8s.io/client-go/1.4/rest"
-	"k8s.io/client-go/1.4/tools/clientcmd"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/pkg/api"
+	"k8s.io/client-go/pkg/api/v1"
+	"k8s.io/client-go/pkg/watch"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 var defaultPortMode = "http"
@@ -85,7 +85,7 @@ func NewKubernetesClient(kubecfg, apiserver, domain string) (*KubernetesClient, 
 func (c *KubernetesClient) connect() (err error) {
 	log.Printf("Using %s for kubernetes master", c.config.Host)
 
-	options := api.ListOptions{}
+	options := v1.ListOptions{}
 
 	ni := c.clientset.Core().Nodes()
 	c.nodeWatcher, err = ni.Watch(options)
@@ -132,7 +132,7 @@ func (c *KubernetesClient) ExecuteTemplates(info *ClusterInformation) {
 }
 
 func (c *KubernetesClient) getNodeNames() ([]string, error) {
-	options := api.ListOptions{}
+	options := v1.ListOptions{}
 	ni := c.clientset.Core().Nodes()
 	nodes, err := ni.List(options)
 	if err != nil {
@@ -146,7 +146,7 @@ func (c *KubernetesClient) getNodeNames() ([]string, error) {
 }
 
 func (c *KubernetesClient) getServices(namespace string) ([]ServiceInformation, error) {
-	options := api.ListOptions{}
+	options := v1.ListOptions{}
 
 	si := c.clientset.Core().Services(api.NamespaceAll)
 	services, err := si.List(options)
