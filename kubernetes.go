@@ -27,20 +27,28 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api"
 	"k8s.io/client-go/pkg/api/v1"
+	"k8s.io/client-go/pkg/runtime"
+	"k8s.io/client-go/pkg/util/wait"
 	"k8s.io/client-go/pkg/watch"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
 var defaultPortMode = "http"
+var reconnectTimeoutSeconds = 300
 
 func init() {
 	flag.StringVar(&defaultPortMode, "default-port-mode", defaultPortMode, "Default mode for service ports")
+	flag.IntVar(&reconnectTimeoutSeconds, "reconnect-timeout", reconnectTimeoutSeconds, "Reconnect timeout in seconds")
 }
 
 type KubernetesClient struct {
 	config    *rest.Config
 	clientset *kubernetes.Clientset
+
+	nodeStore      NodeStore
+	serviceStore   ServiceStore
+	endpointsStore EndpointsStore
 
 	nodeWatcher      watch.Interface
 	serviceWatcher   watch.Interface
@@ -90,19 +98,19 @@ func (c *KubernetesClient) connect() (err error) {
 	ni := c.clientset.Core().Nodes()
 	c.nodeWatcher, err = ni.Watch(options)
 	if err != nil {
-		return fmt.Errorf("Couldn't watch events on nodes: %v", err)
+		return fmt.Errorf("couldn't watch events on nodes: %v", err)
 	}
 
 	si := c.clientset.Core().Services(api.NamespaceAll)
 	c.serviceWatcher, err = si.Watch(options)
 	if err != nil {
-		return fmt.Errorf("Couldn't watch events on services: %v", err)
+		return fmt.Errorf("couldn't watch events on services: %v", err)
 	}
 
 	ei := c.clientset.Core().Endpoints(api.NamespaceAll)
 	c.endpointsWatcher, err = ei.Watch(options)
 	if err != nil {
-		return fmt.Errorf("Couldn't watch events on endpoints: %v", err)
+		return fmt.Errorf("couldn't watch events on endpoints: %v", err)
 	}
 	return
 }
@@ -131,39 +139,21 @@ func (c *KubernetesClient) ExecuteTemplates(info *ClusterInformation) {
 	}
 }
 
-func (c *KubernetesClient) getNodeNames() ([]string, error) {
-	options := v1.ListOptions{}
-	ni := c.clientset.Core().Nodes()
-	nodes, err := ni.List(options)
+func (c *KubernetesClient) getServices() ([]ServiceInformation, error) {
+	services, err := c.serviceStore.List()
 	if err != nil {
-		return nil, err
-	}
-	nodeNames := make([]string, len(nodes.Items))
-	for i, n := range nodes.Items {
-		nodeNames[i] = n.Name
-	}
-	return nodeNames, nil
-}
-
-func (c *KubernetesClient) getServices(namespace string) ([]ServiceInformation, error) {
-	options := v1.ListOptions{}
-
-	si := c.clientset.Core().Services(api.NamespaceAll)
-	services, err := si.List(options)
-	if err != nil {
-		return nil, fmt.Errorf("Couldn't get services: %s", err)
+		return nil, fmt.Errorf("couldn't get services: %s", err)
 	}
 
-	ei := c.clientset.Core().Endpoints(api.NamespaceAll)
-	endpoints, err := ei.List(options)
+	endpoints, err := c.endpointsStore.List()
 	if err != nil {
-		return nil, fmt.Errorf("Couldn't get endpoints: %s", err)
+		return nil, fmt.Errorf("couldn't get endpoints: %s", err)
 	}
 
 	endpointsHelper := NewEndpointsHelper(endpoints)
 
-	servicesInformation := make([]ServiceInformation, 0, len(services.Items))
-	for _, s := range services.Items {
+	servicesInformation := make([]ServiceInformation, 0, len(services))
+	for _, s := range services {
 		var external []string
 		if domains, ok := s.ObjectMeta.Annotations[ExternalDomainsAnnotation]; ok && len(domains) > 0 {
 			external = strings.Split(domains, ",")
@@ -178,7 +168,7 @@ func (c *KubernetesClient) getServices(namespace string) ([]ServiceInformation, 
 
 		switch s.Spec.Type {
 		case v1.ServiceTypeNodePort, v1.ServiceTypeLoadBalancer:
-			endpointsPortsMap := endpointsHelper.ServicePortsMap(&s)
+			endpointsPortsMap := endpointsHelper.ServicePortsMap(s)
 			if len(endpointsPortsMap) == 0 {
 				log.Printf("Couldn't find endpoints for %s in %s?", s.Name, s.Namespace)
 				continue
@@ -210,14 +200,11 @@ func (c *KubernetesClient) getServices(namespace string) ([]ServiceInformation, 
 }
 
 func (c *KubernetesClient) Update() error {
-	nodeNames, err := c.getNodeNames()
-	if err != nil {
-		return fmt.Errorf("Couldn't get nodes: %s", err)
-	}
+	nodeNames := c.nodeStore.GetNames()
 
-	services, err := c.getServices(api.NamespaceAll)
+	services, err := c.getServices()
 	if err != nil {
-		return fmt.Errorf("Couldn't get services: %s", err)
+		return fmt.Errorf("couldn't get services: %s", err)
 	}
 
 	portsMap := make(map[PortSpec]bool)
@@ -257,28 +244,54 @@ func (c *KubernetesClient) Watch() error {
 	})
 	go updater.Run()
 
+	c.nodeStore = NodeStore{NewLocalStore()}
+	c.serviceStore = ServiceStore{NewLocalStore()}
+	c.endpointsStore = EndpointsStore{NewLocalStore()}
+
+	updateStore := func(s Store, e watch.Event, equal EqualFunc) {
+		if e.Object == nil {
+			return
+		}
+		switch e.Type {
+		case watch.Added, watch.Modified:
+			// We handle Added the same as Modified because when reconnecting we
+			// receive everything as Added
+			old := s.Update(e.Object)
+			if old == nil || !equal(old, e.Object) {
+				updater.Signal()
+			}
+		case watch.Deleted:
+			s.Delete(e.Object)
+			updater.Signal()
+		}
+	}
+
 	var more bool
 	var e watch.Event
 	for {
 		select {
 		case e, more = <-c.nodeWatcher.ResultChan():
-			if e.Type == watch.Added || e.Type == watch.Deleted {
-				updater.Signal()
-			}
-		case _, more = <-c.serviceWatcher.ResultChan():
-			updater.Signal()
+			updateStore(c.nodeStore, e, EqualUIDs)
+		case e, more = <-c.serviceWatcher.ResultChan():
+			updateStore(c.serviceStore, e, func(a, b runtime.Object) bool {
+				return EqualUIDs(a, b) && EqualResourceVersion(a, b)
+			})
 		case e, more = <-c.endpointsWatcher.ResultChan():
-			updater.Signal()
+			updateStore(c.endpointsStore, e, EqualEndpoints)
 		}
+
 		if !more {
-			log.Printf("Connection closed, trying to reconnect")
-			for {
-				if err := c.connect(); err != nil {
+			log.Printf("Connection closed, trying to reconnect...")
+			timeout := time.Duration(reconnectTimeoutSeconds) * time.Second
+			err := wait.Poll(5*time.Second, timeout, func() (bool, error) {
+				err := c.connect()
+				if err != nil {
 					log.Println(err)
-					time.Sleep(5 * time.Second)
-				} else {
-					break
 				}
+				return err == nil, nil
+			})
+			if err != nil {
+				return err
 			}
 		}
 	}

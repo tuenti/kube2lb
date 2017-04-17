@@ -40,10 +40,10 @@ func metaKey(meta v1.ObjectMeta) string {
 	return fmt.Sprintf("%s %s", meta.Name, meta.Namespace)
 }
 
-func NewEndpointsHelper(endpoints *v1.EndpointsList) *EndpointsHelper {
+func NewEndpointsHelper(endpoints []*v1.Endpoints) *EndpointsHelper {
 	endpointsMap := make(map[string]*v1.Endpoints)
-	for i, endpoint := range endpoints.Items {
-		endpointsMap[metaKey(endpoint.ObjectMeta)] = &endpoints.Items[i]
+	for _, endpoint := range endpoints {
+		endpointsMap[metaKey(endpoint.ObjectMeta)] = endpoint
 	}
 	return &EndpointsHelper{endpointsMap}
 }
