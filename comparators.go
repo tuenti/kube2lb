@@ -24,20 +24,38 @@ import (
 	"k8s.io/client-go/pkg/runtime"
 )
 
-type EqualFunc func(a, b runtime.Object) bool
+type EqualFunc func(a, b runtime.Object) (bool, error)
 
-func EqualUIDs(a, b runtime.Object) bool {
-	metaA, _ := meta.Accessor(a)
-	metaB, _ := meta.Accessor(b)
+func EqualUIDs(a, b runtime.Object) (bool, error) {
+	accessor := meta.NewAccessor()
 
-	return metaA.GetUID() == metaB.GetUID()
+	UIDA, err := accessor.UID(a)
+	if err != nil {
+		return false, err
+	}
+
+	UIDB, err := accessor.UID(b)
+	if err != nil {
+		return false, err
+	}
+
+	return UIDA == UIDB, nil
 }
 
-func EqualResourceVersion(a, b runtime.Object) bool {
-	metaA, _ := meta.Accessor(a)
-	metaB, _ := meta.Accessor(b)
+func EqualResourceVersion(a, b runtime.Object) (bool, error) {
+	accessor := meta.NewAccessor()
 
-	return metaA.GetResourceVersion() == metaB.GetResourceVersion()
+	resourceVersionA, err := accessor.ResourceVersion(a)
+	if err != nil {
+		return false, err
+	}
+
+	resourceVersionB, err := accessor.ResourceVersion(b)
+	if err != nil {
+		return false, err
+	}
+
+	return resourceVersionA == resourceVersionB, nil
 }
 
 func getEndpointsUIDs(e *v1.Endpoints) map[string]bool {
@@ -52,33 +70,33 @@ func getEndpointsUIDs(e *v1.Endpoints) map[string]bool {
 	return uids
 }
 
-func EqualEndpoints(a, b runtime.Object) bool {
+func EqualEndpoints(a, b runtime.Object) (bool, error) {
 	endpointsA, ok := a.(*v1.Endpoints)
 	if !ok {
-		return false
+		return false, fmt.Errorf("couldn't convert object to endpoints")
 	}
 
 	endpointsB, ok := b.(*v1.Endpoints)
 	if !ok {
-		return false
+		return false, fmt.Errorf("couldn't convert object to endpoints")
 	}
 
 	if endpointsA.UID == endpointsB.UID && endpointsA.ResourceVersion == endpointsB.ResourceVersion {
-		return true
+		return true, nil
 	}
 
 	uidsA := getEndpointsUIDs(endpointsA)
 	uidsB := getEndpointsUIDs(endpointsB)
 
 	if len(uidsA) != len(uidsB) {
-		return false
+		return false, nil
 	}
 
 	for uid := range uidsA {
 		if _, found := uidsB[uid]; !found {
-			return false
+			return false, nil
 		}
 	}
 
-	return true
+	return true, nil
 }

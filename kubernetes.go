@@ -55,7 +55,7 @@ type KubernetesClient struct {
 	endpointsWatcher watch.Interface
 
 	notifiers []Notifier
-	templates []*Template
+	templates []Template
 
 	domain string
 }
@@ -80,7 +80,7 @@ func NewKubernetesClient(kubecfg, apiserver, domain string) (*KubernetesClient, 
 		config:    config,
 		clientset: clientset,
 		notifiers: make([]Notifier, 0, 10),
-		templates: make([]*Template, 0, 10),
+		templates: make([]Template, 0, 10),
 		domain:    domain,
 	}
 
@@ -127,7 +127,7 @@ func (c *KubernetesClient) Notify() {
 	}
 }
 
-func (c *KubernetesClient) AddTemplate(t *Template) {
+func (c *KubernetesClient) AddTemplate(t Template) {
 	c.templates = append(c.templates, t)
 }
 
@@ -257,9 +257,17 @@ func (c *KubernetesClient) Watch() error {
 			// We handle Added the same as Modified because when reconnecting we
 			// receive everything as Added
 			old := s.Update(e.Object)
-			if old == nil || !equal(old, e.Object) {
-				updater.Signal()
+			if old != nil {
+				eq, err := equal(old, e.Object)
+				if err != nil {
+					log.Println(err)
+					return
+				}
+				if eq {
+					return
+				}
 			}
+			updater.Signal()
 		case watch.Deleted:
 			s.Delete(e.Object)
 			updater.Signal()
@@ -273,8 +281,16 @@ func (c *KubernetesClient) Watch() error {
 		case e, more = <-c.nodeWatcher.ResultChan():
 			updateStore(c.nodeStore, e, EqualUIDs)
 		case e, more = <-c.serviceWatcher.ResultChan():
-			updateStore(c.serviceStore, e, func(a, b runtime.Object) bool {
-				return EqualUIDs(a, b) && EqualResourceVersion(a, b)
+			updateStore(c.serviceStore, e, func(a, b runtime.Object) (bool, error) {
+				eqUIDs, err := EqualUIDs(a, b)
+				if err != nil {
+					return false, err
+				}
+				eqVersion, err := EqualResourceVersion(a, b)
+				if err != nil {
+					return false, err
+				}
+				return eqUIDs && eqVersion, nil
 			})
 		case e, more = <-c.endpointsWatcher.ResultChan():
 			updateStore(c.endpointsStore, e, EqualEndpoints)
