@@ -54,6 +54,9 @@ type KubernetesClient struct {
 	serviceWatcher   watch.Interface
 	endpointsWatcher watch.Interface
 
+	updaterBuilder UpdaterBuilder
+	eventForwarder func(watch.Event)
+
 	notifiers []Notifier
 	templates []Template
 
@@ -77,11 +80,12 @@ func NewKubernetesClient(kubecfg, apiserver, domain string) (*KubernetesClient, 
 	}
 
 	kc := &KubernetesClient{
-		config:    config,
-		clientset: clientset,
-		notifiers: make([]Notifier, 0, 10),
-		templates: make([]Template, 0, 10),
-		domain:    domain,
+		config:         config,
+		clientset:      clientset,
+		notifiers:      make([]Notifier, 0, 10),
+		templates:      make([]Template, 0, 10),
+		domain:         domain,
+		updaterBuilder: NewUpdater,
 	}
 
 	if err := kc.connect(); err != nil {
@@ -230,7 +234,7 @@ func (c *KubernetesClient) Update() error {
 
 func (c *KubernetesClient) Watch() error {
 	isFirstUpdate := true
-	updater := NewUpdater(func() {
+	updater := c.updaterBuilder(func() {
 		var err error
 		if err = c.Update(); err != nil {
 			log.Printf("Couldn't update state: %s", err)
@@ -294,6 +298,11 @@ func (c *KubernetesClient) Watch() error {
 			})
 		case e, more = <-c.endpointsWatcher.ResultChan():
 			updateStore(c.endpointsStore, e, EqualEndpoints)
+		}
+
+		// Used in tests to know when events have been processed
+		if c.eventForwarder != nil {
+			c.eventForwarder(e)
 		}
 
 		if !more {

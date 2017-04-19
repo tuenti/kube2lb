@@ -47,7 +47,7 @@ type testNotifier struct {
 }
 
 func newTestNotifier() *testNotifier {
-	return &testNotifier{make(chan struct{})}
+	return &testNotifier{make(chan struct{}, 10)}
 }
 
 func (n *testNotifier) Notify() error {
@@ -75,16 +75,51 @@ func (t *dummyTemplate) Execute(info *ClusterInformation) error {
 	return nil
 }
 
+// An updater that doesn't call the updater function but register
+// if it has been signaled
+type dummyUpdater struct {
+	Signaled bool
+	F        UpdaterFunc
+}
+
+func (dummyUpdater) Run() {
+	select {}
+}
+
+func (u *dummyUpdater) Signal() {
+	u.Signaled = true
+}
+
+func (u *dummyUpdater) Build(f UpdaterFunc) Updater {
+	u.F = f
+	return u
+}
+
 func TestKubernetesWatch(t *testing.T) {
 	nodeWatcher := newTestWatcher()
 	serviceWatcher := newTestWatcher()
 	endpointsWatcher := newTestWatcher()
 
+	updater := dummyUpdater{}
+	eventForwarderChan := make(chan struct{}, 100)
+	consumeForwardedEvent := func() {
+		select {
+		case <-eventForwarderChan:
+		case <-time.After(10 * time.Millisecond):
+			t.Fatal("event consumption timeout")
+		}
+	}
+
+	// Setup client
 	client := &KubernetesClient{
 		nodeWatcher:      nodeWatcher,
 		serviceWatcher:   serviceWatcher,
 		endpointsWatcher: endpointsWatcher,
 		domain:           "kube2lb.test",
+		updaterBuilder:   updater.Build,
+		eventForwarder: func(watch.Event) {
+			eventForwarderChan <- struct{}{}
+		},
 	}
 	notifier := newTestNotifier()
 	client.AddNotifier(notifier)
@@ -94,6 +129,7 @@ func TestKubernetesWatch(t *testing.T) {
 
 	go client.Watch()
 
+	// Send events to watchers
 	nodeEvents := []watch.Event{
 		watch.Event{
 			Type: watch.Added,
@@ -166,22 +202,29 @@ func TestKubernetesWatch(t *testing.T) {
 		},
 	}
 
+	eventCount := 0
 	for _, event := range nodeEvents {
 		nodeWatcher.resultChan <- event
+		eventCount++
 	}
 
 	for _, event := range serviceEvents {
 		serviceWatcher.resultChan <- event
+		eventCount++
 	}
 
 	for _, event := range endpointsEvents {
 		endpointsWatcher.resultChan <- event
+		eventCount++
 	}
 
-	err := notifier.Wait()
-	if err != nil {
-		t.Fatal(err)
+	for i := 0; i < eventCount; i++ {
+		consumeForwardedEvent()
 	}
+
+	// Check effects
+	assert.Equal(t, updater.Signaled, true, "Updater should have been signaled")
+	updater.F()
 
 	if template.executionCount == 0 {
 		t.Fatal("template not executed")
@@ -198,4 +241,15 @@ func TestKubernetesWatch(t *testing.T) {
 			}
 		}
 	}
+
+	// Send an event that wouldn't modify the state and check that updater is not signaled
+	updater.Signaled = false
+	nodeWatcher.resultChan <- watch.Event{
+		Type: watch.Added,
+		Object: &v1.Node{
+			ObjectMeta: v1.ObjectMeta{SelfLink: "/node/2", Name: "node2", UID: "2"},
+		},
+	}
+	consumeForwardedEvent()
+	assert.Equal(t, updater.Signaled, false, "Updater shouldn't have been signaled on repeated modification")
 }

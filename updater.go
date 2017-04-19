@@ -21,21 +21,30 @@ import (
 	"time"
 )
 
-type Updater struct {
-	updateNeeded  atomic.Value
-	signal, burst chan struct{}
-	f             func()
+type Updater interface {
+	Run()
+	Signal()
 }
 
-func NewUpdater(f func()) *Updater {
-	return &Updater{
+type UpdaterFunc func()
+
+type UpdaterBuilder func(f UpdaterFunc) Updater
+
+type antiBurstUpdater struct {
+	updateNeeded  atomic.Value
+	signal, burst chan struct{}
+	f             UpdaterFunc
+}
+
+func NewUpdater(f UpdaterFunc) Updater {
+	return &antiBurstUpdater{
 		signal: make(chan struct{}),
 		burst:  make(chan struct{}),
 		f:      f,
 	}
 }
 
-func (u *Updater) antiBurst() {
+func (u *antiBurstUpdater) antiBurst() {
 	for {
 		select {
 		case <-u.burst:
@@ -47,7 +56,7 @@ func (u *Updater) antiBurst() {
 	}
 }
 
-func (u *Updater) Run() {
+func (u *antiBurstUpdater) Run() {
 	go u.antiBurst()
 	for _ = range u.signal {
 		u.updateNeeded.Store(0)
@@ -55,7 +64,7 @@ func (u *Updater) Run() {
 	}
 }
 
-func (u *Updater) Signal() {
+func (u *antiBurstUpdater) Signal() {
 	u.updateNeeded.Store(1)
 	u.burst <- struct{}{}
 }
