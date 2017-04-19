@@ -21,6 +21,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/util/intstr"
 	"k8s.io/client-go/pkg/watch"
@@ -186,22 +188,14 @@ func TestKubernetesWatch(t *testing.T) {
 	}
 
 	info := template.lastExecutedWith
-	if info == nil {
-		t.Fatal("template executed without cluster information?")
-	}
-	if len(info.Nodes) != 1 {
-		t.Fatalf("%d nodes in cluster information, %d expected", len(info.Nodes), 1)
-	}
-	if info.Nodes[0] != "node2" {
-		t.Fatalf("%s node found, %s expected", info.Nodes[0], "node2")
-	}
-	if len(info.Services) != 1 {
-		t.Fatalf("%d services in cluster information, %d expected", len(info.Services), 1)
-	}
-	if len(info.Services[0].Endpoints) != 1 {
-		t.Fatalf("%d endpoints for service, %d expected", len(info.Services[0].Endpoints), 1)
-	}
-	if info.Services[0].Endpoints[0].IP != "10.0.0.1" {
-		t.Fatalf("%s endpoint for service, %s expected", info.Services[0].Endpoints[0].IP, "10.0.0.1")
+	if assert.NotNil(t, info, "template executed without cluster information?") {
+		if assert.Equal(t, len(info.Nodes), 1, "expected number of nodes") {
+			assert.Equal(t, info.Nodes[0], "node2", "expected name of first node")
+		}
+		if assert.Equal(t, len(info.Services), 1, "expected number of services") {
+			if assert.Equal(t, len(info.Services[0].Endpoints), 1, "expected number of endpoints on first service") {
+				assert.Equal(t, info.Services[0].Endpoints[0].IP, "10.0.0.1", "endpoint for first service")
+			}
+		}
 	}
 }
