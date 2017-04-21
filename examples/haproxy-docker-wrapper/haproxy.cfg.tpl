@@ -26,9 +26,9 @@ defaults
 	retries    3
 	option     redispatch
 	timeout connect 3s
-	timeout client  200s
-	timeout client  30s
-	timeout server  200s
+	timeout client  120s
+	timeout server  30s
+	timeout http-keep-alive 120s
 	timeout tunnel  1h
 
 {{ range $i, $port := $ports }}
