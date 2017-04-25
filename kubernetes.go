@@ -26,8 +26,8 @@ import (
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api"
+	"k8s.io/client-go/pkg/api/meta"
 	"k8s.io/client-go/pkg/api/v1"
-	"k8s.io/client-go/pkg/runtime"
 	"k8s.io/client-go/pkg/util/wait"
 	"k8s.io/client-go/pkg/watch"
 	"k8s.io/client-go/rest"
@@ -53,6 +53,8 @@ type KubernetesClient struct {
 	nodeWatcher      watch.Interface
 	serviceWatcher   watch.Interface
 	endpointsWatcher watch.Interface
+
+	lastResourceVersion string
 
 	updaterBuilder UpdaterBuilder
 	eventForwarder func(watch.Event)
@@ -97,7 +99,9 @@ func NewKubernetesClient(kubecfg, apiserver, domain string) (*KubernetesClient, 
 func (c *KubernetesClient) connect() (err error) {
 	log.Printf("Using %s for kubernetes master", c.config.Host)
 
-	options := v1.ListOptions{}
+	options := v1.ListOptions{
+		ResourceVersion: c.lastResourceVersion,
+	}
 
 	ni := c.clientset.Core().Nodes()
 	c.nodeWatcher, err = ni.Watch(options)
@@ -256,12 +260,20 @@ func (c *KubernetesClient) Watch() error {
 		if e.Object == nil {
 			return
 		}
+		defer func() {
+			accessor, _ := meta.Accessor(e.Object)
+			c.lastResourceVersion = accessor.GetResourceVersion()
+		}()
+
 		switch e.Type {
-		case watch.Added, watch.Modified:
-			// We handle Added the same as Modified because when reconnecting we
-			// receive everything as Added
+		case watch.Added:
+			s.Update(e.Object)
+			updater.Signal()
+		case watch.Modified:
 			old := s.Update(e.Object)
-			if old != nil {
+			if old == nil {
+				log.Println("Modified unknown object, this shouldn't happen")
+			} else {
 				eq, err := equal(old, e.Object)
 				if err != nil {
 					log.Println(err)
@@ -285,17 +297,7 @@ func (c *KubernetesClient) Watch() error {
 		case e, more = <-c.nodeWatcher.ResultChan():
 			updateStore(c.nodeStore, e, EqualUIDs)
 		case e, more = <-c.serviceWatcher.ResultChan():
-			updateStore(c.serviceStore, e, func(a, b runtime.Object) (bool, error) {
-				eqUIDs, err := EqualUIDs(a, b)
-				if err != nil {
-					return false, err
-				}
-				eqVersion, err := EqualResourceVersion(a, b)
-				if err != nil {
-					return false, err
-				}
-				return eqUIDs && eqVersion, nil
-			})
+			updateStore(c.serviceStore, e, EqualUIDs)
 		case e, more = <-c.endpointsWatcher.ResultChan():
 			updateStore(c.endpointsStore, e, EqualEndpoints)
 		}

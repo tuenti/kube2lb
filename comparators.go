@@ -42,22 +42,6 @@ func EqualUIDs(a, b runtime.Object) (bool, error) {
 	return UIDA == UIDB, nil
 }
 
-func EqualResourceVersion(a, b runtime.Object) (bool, error) {
-	accessor := meta.NewAccessor()
-
-	resourceVersionA, err := accessor.ResourceVersion(a)
-	if err != nil {
-		return false, err
-	}
-
-	resourceVersionB, err := accessor.ResourceVersion(b)
-	if err != nil {
-		return false, err
-	}
-
-	return resourceVersionA == resourceVersionB, nil
-}
-
 func getEndpointsUIDs(e *v1.Endpoints) map[string]bool {
 	uids := make(map[string]bool)
 	for _, subset := range e.Subsets {

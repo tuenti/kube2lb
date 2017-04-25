@@ -245,7 +245,7 @@ func TestKubernetesWatch(t *testing.T) {
 	// Send an event that wouldn't modify the state and check that updater is not signaled
 	updater.Signaled = false
 	nodeWatcher.resultChan <- watch.Event{
-		Type: watch.Added,
+		Type: watch.Modified,
 		Object: &v1.Node{
 			ObjectMeta: v1.ObjectMeta{SelfLink: "/node/2", Name: "node2", UID: "2"},
 		},
