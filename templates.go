@@ -94,12 +94,16 @@ type ClusterInformation struct {
 	Domain   string
 }
 
-type Template struct {
+type Template interface {
+	Execute(info *ClusterInformation) error
+}
+
+type templateFile struct {
 	Source, Path string
 }
 
-func NewTemplate(source, path string) *Template {
-	return &Template{
+func NewTemplate(source, path string) Template {
+	return &templateFile{
 		Source: source,
 		Path:   path,
 	}
@@ -150,7 +154,7 @@ func intRange(n, initial, step int) chan int {
 	return c
 }
 
-func (t *Template) Execute(info *ClusterInformation) error {
+func (t *templateFile) Execute(info *ClusterInformation) error {
 	funcMap := template.FuncMap{
 		"EscapeNode":  nodeNameReplacer.Replace,
 		"IntRange":    intRange,
