@@ -94,9 +94,16 @@ And in the configuration file template:
 {{ range $serverName := ServerNames $service $domain }}
 {{- if $serverName.IsRegexp }}
 acl svc_{{ $label }} hdr_reg(host) {{ $serverName.Regexp }}{{- else }}
-acl svc_{{ $label }} hdr(host) -i {{ $serverName }}{{- end }}
+acl svc_{{ $label }} hdr_dom(host) -i {{ $serverName }}{{- end }}
 {{- end }}
 ```
+
+When looking for matches in the `Host` header take into account that it can also
+include the port in the form `host:port`. In the previous example the regexp would
+be applied to the whole `Host` header, including the port, so it has to be
+considered when writing the annotation. On the other hand this template would handle
+it for plain server names by using the `hdr_dom` function, that compares with the
+"domain" part of the header.
 
 ### Port modes
 
