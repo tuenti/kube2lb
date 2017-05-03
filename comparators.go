@@ -26,20 +26,20 @@ import (
 
 type EqualFunc func(a, b runtime.Object) (bool, error)
 
-func EqualUIDs(a, b runtime.Object) (bool, error) {
+func EqualNames(a, b runtime.Object) (bool, error) {
 	accessor := meta.NewAccessor()
 
-	UIDA, err := accessor.UID(a)
+	nameA, err := accessor.Name(a)
 	if err != nil {
 		return false, err
 	}
 
-	UIDB, err := accessor.UID(b)
+	nameB, err := accessor.Name(b)
 	if err != nil {
 		return false, err
 	}
 
-	return UIDA == UIDB, nil
+	return nameA == nameB, nil
 }
 
 func getEndpointsUIDs(e *v1.Endpoints) map[string]bool {

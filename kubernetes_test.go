@@ -155,7 +155,7 @@ func TestKubernetesWatch(t *testing.T) {
 		watch.Event{
 			Type: watch.Added,
 			Object: &v1.Service{
-				ObjectMeta: v1.ObjectMeta{SelfLink: "/service/1", Name: "service1", Namespace: "test", ResourceVersion: "1"},
+				ObjectMeta: v1.ObjectMeta{SelfLink: "/service/1", Name: "service1", Namespace: "test", ResourceVersion: "3"},
 				Spec: v1.ServiceSpec{
 					Type: v1.ServiceTypeNodePort,
 					Ports: []v1.ServicePort{
@@ -169,7 +169,7 @@ func TestKubernetesWatch(t *testing.T) {
 		watch.Event{
 			Type: watch.Added,
 			Object: &v1.Service{
-				ObjectMeta: v1.ObjectMeta{SelfLink: "/service/2", Name: "service2", Namespace: "test", ResourceVersion: "1"},
+				ObjectMeta: v1.ObjectMeta{SelfLink: "/service/2", Name: "service2", Namespace: "test", ResourceVersion: "4"},
 				Spec:       v1.ServiceSpec{Type: v1.ServiceTypeClusterIP},
 			},
 		},
@@ -179,7 +179,7 @@ func TestKubernetesWatch(t *testing.T) {
 		watch.Event{
 			Type: watch.Added,
 			Object: &v1.Endpoints{
-				ObjectMeta: v1.ObjectMeta{SelfLink: "/endpoints/1", Name: "service1", Namespace: "test", ResourceVersion: "1"},
+				ObjectMeta: v1.ObjectMeta{SelfLink: "/endpoints/1", Name: "service1", Namespace: "test", ResourceVersion: "5"},
 				Subsets: []v1.EndpointSubset{
 					{
 						Addresses: []v1.EndpointAddress{{IP: "10.0.0.1"}, {IP: "10.0.0.2"}},
@@ -191,7 +191,7 @@ func TestKubernetesWatch(t *testing.T) {
 		watch.Event{
 			Type: watch.Modified,
 			Object: &v1.Endpoints{
-				ObjectMeta: v1.ObjectMeta{SelfLink: "/endpoints/1", Name: "service1", Namespace: "test", ResourceVersion: "2"},
+				ObjectMeta: v1.ObjectMeta{SelfLink: "/endpoints/1", Name: "service1", Namespace: "test", ResourceVersion: "6"},
 				Subsets: []v1.EndpointSubset{
 					{
 						Addresses: []v1.EndpointAddress{{IP: "10.0.0.1"}},
@@ -252,4 +252,30 @@ func TestKubernetesWatch(t *testing.T) {
 	}
 	consumeForwardedEvent()
 	assert.Equal(t, updater.Signaled, false, "Updater shouldn't have been signaled on repeated modification")
+
+	// Adding an annotation to a service should signal updater
+	updater.Signaled = false
+	serviceWatcher.resultChan <- watch.Event{
+		Type: watch.Modified,
+		Object: &v1.Service{
+			ObjectMeta: v1.ObjectMeta{
+				SelfLink:        "/service/1",
+				Name:            "service1",
+				Namespace:       "test",
+				ResourceVersion: "7",
+				Annotations:     map[string]string{ExternalDomainsAnnotation: "service1.example.com"},
+			},
+			Spec: v1.ServiceSpec{
+				Type: v1.ServiceTypeNodePort,
+				Ports: []v1.ServicePort{
+					{
+						Name: "http", Port: 80, TargetPort: intstr.FromInt(80),
+					},
+				},
+			},
+		},
+	}
+	consumeForwardedEvent()
+	assert.Equal(t, updater.Signaled, true, "Updater should have been signaled when adding annotation to service")
+	updater.F()
 }

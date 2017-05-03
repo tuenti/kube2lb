@@ -273,7 +273,7 @@ func (c *KubernetesClient) Watch() error {
 			old := s.Update(e.Object)
 			if old == nil {
 				log.Println("Modified unknown object, this shouldn't happen")
-			} else {
+			} else if equal != nil {
 				eq, err := equal(old, e.Object)
 				if err != nil {
 					log.Println(err)
@@ -295,9 +295,9 @@ func (c *KubernetesClient) Watch() error {
 	for {
 		select {
 		case e, more = <-c.nodeWatcher.ResultChan():
-			updateStore(c.nodeStore, e, EqualUIDs)
+			updateStore(c.nodeStore, e, EqualNames)
 		case e, more = <-c.serviceWatcher.ResultChan():
-			updateStore(c.serviceStore, e, EqualUIDs)
+			updateStore(c.serviceStore, e, nil)
 		case e, more = <-c.endpointsWatcher.ResultChan():
 			updateStore(c.endpointsStore, e, EqualEndpoints)
 		}
