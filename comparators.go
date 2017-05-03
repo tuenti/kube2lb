@@ -24,8 +24,6 @@ import (
 	"k8s.io/client-go/pkg/runtime"
 )
 
-type EqualFunc func(a, b runtime.Object) (bool, error)
-
 func EqualNames(a, b runtime.Object) (bool, error) {
 	accessor := meta.NewAccessor()
 
@@ -40,6 +38,22 @@ func EqualNames(a, b runtime.Object) (bool, error) {
 	}
 
 	return nameA == nameB, nil
+}
+
+func EqualResourceVersions(a, b runtime.Object) (bool, error) {
+	accessor := meta.NewAccessor()
+
+	versionA, err := accessor.ResourceVersion(a)
+	if err != nil {
+		return false, err
+	}
+
+	versionB, err := accessor.ResourceVersion(b)
+	if err != nil {
+		return false, err
+	}
+
+	return versionA == versionB, nil
 }
 
 func getEndpointsUIDs(e *v1.Endpoints) map[string]bool {
