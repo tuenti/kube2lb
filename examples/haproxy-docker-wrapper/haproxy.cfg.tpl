@@ -43,7 +43,7 @@ frontend frontend_{{ $port.String }}
 	{{- if $serverName.IsRegexp }}
 	acl svc_{{ $label }} hdr_reg(host) {{ $serverName.Regexp }}
 	{{- else }}
-	acl svc_{{ $label }} hdr(host) -i {{ $serverName }}
+	acl svc_{{ $label }} hdr_dom(host) -i {{ $serverName }}
 	{{- end }}
 	{{- end }}
 	use_backend backend_{{ $label }} if svc_{{ $label }}
