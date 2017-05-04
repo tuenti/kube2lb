@@ -18,6 +18,7 @@ package main
 
 import (
 	"fmt"
+	"sync"
 
 	"k8s.io/client-go/pkg/api/meta"
 	"k8s.io/client-go/pkg/api/v1"
@@ -30,6 +31,8 @@ type Store interface {
 }
 
 type LocalStore struct {
+	sync.RWMutex
+
 	Objects map[string]runtime.Object
 }
 
@@ -40,6 +43,9 @@ func NewLocalStore() *LocalStore {
 }
 
 func (s *LocalStore) Update(o runtime.Object) runtime.Object {
+	s.Lock()
+	defer s.Unlock()
+
 	accessor, _ := meta.Accessor(o)
 	link := accessor.GetSelfLink()
 	old := s.Objects[link]
@@ -48,6 +54,9 @@ func (s *LocalStore) Update(o runtime.Object) runtime.Object {
 }
 
 func (s *LocalStore) Delete(o runtime.Object) runtime.Object {
+	s.Lock()
+	defer s.Unlock()
+
 	accessor, _ := meta.Accessor(o)
 	link := accessor.GetSelfLink()
 	old := s.Objects[link]
@@ -60,6 +69,9 @@ type NodeStore struct {
 }
 
 func (s *NodeStore) GetNames() []string {
+	s.RLock()
+	defer s.RUnlock()
+
 	var nodeNames []string
 	for _, o := range s.Objects {
 		accessor, _ := meta.Accessor(o)
@@ -73,6 +85,9 @@ type ServiceStore struct {
 }
 
 func (s *ServiceStore) List() ([]*v1.Service, error) {
+	s.RLock()
+	defer s.RUnlock()
+
 	var services []*v1.Service
 	for _, o := range s.Objects {
 		service, ok := o.(*v1.Service)
@@ -89,6 +104,9 @@ type EndpointsStore struct {
 }
 
 func (s *EndpointsStore) List() ([]*v1.Endpoints, error) {
+	s.RLock()
+	defer s.RUnlock()
+
 	var endpoints []*v1.Endpoints
 	for _, o := range s.Objects {
 		endpoint, ok := o.(*v1.Endpoints)
