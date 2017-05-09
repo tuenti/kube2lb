@@ -28,6 +28,7 @@ import (
 type Store interface {
 	Delete(runtime.Object) runtime.Object
 	Update(runtime.Object) runtime.Object
+	Equal(runtime.Object, runtime.Object) (bool, error)
 }
 
 type LocalStore struct {
@@ -40,6 +41,10 @@ func NewLocalStore() *LocalStore {
 	return &LocalStore{
 		Objects: make(map[string]runtime.Object),
 	}
+}
+
+func (s *LocalStore) Equal(o runtime.Object, n runtime.Object) (bool, error) {
+	return EqualResourceVersions(o, n)
 }
 
 func (s *LocalStore) Update(o runtime.Object) runtime.Object {
@@ -66,6 +71,11 @@ func (s *LocalStore) Delete(o runtime.Object) runtime.Object {
 
 type NodeStore struct {
 	*LocalStore
+}
+
+func (s NodeStore) Equal(o runtime.Object, n runtime.Object) (bool, error) {
+	// Not completelly accurate, but by now we are only using node names
+	return EqualNames(o, n)
 }
 
 func (s *NodeStore) GetNames() []string {
@@ -101,6 +111,10 @@ func (s *ServiceStore) List() ([]*v1.Service, error) {
 
 type EndpointsStore struct {
 	*LocalStore
+}
+
+func (s EndpointsStore) Equal(o runtime.Object, n runtime.Object) (bool, error) {
+	return EqualEndpoints(o, n)
 }
 
 func (s *EndpointsStore) List() ([]*v1.Endpoints, error) {

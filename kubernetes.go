@@ -256,7 +256,7 @@ func (c *KubernetesClient) Watch() error {
 	c.serviceStore = ServiceStore{NewLocalStore()}
 	c.endpointsStore = EndpointsStore{NewLocalStore()}
 
-	updateStore := func(s Store, e watch.Event, equal EqualFunc) {
+	updateStore := func(s Store, e watch.Event) {
 		if e.Object == nil {
 			return
 		}
@@ -268,26 +268,24 @@ func (c *KubernetesClient) Watch() error {
 		switch e.Type {
 		case watch.Added:
 			s.Update(e.Object)
-			updater.Signal()
 		case watch.Modified:
 			old := s.Update(e.Object)
 			if old == nil {
 				log.Println("Modified unknown object, this shouldn't happen")
-			} else {
-				eq, err := equal(old, e.Object)
-				if err != nil {
-					log.Println(err)
-					return
-				}
-				if eq {
-					return
-				}
+				break
 			}
-			updater.Signal()
+			eq, err := s.Equal(old, e.Object)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			if eq {
+				return
+			}
 		case watch.Deleted:
 			s.Delete(e.Object)
-			updater.Signal()
 		}
+		updater.Signal()
 	}
 
 	var more bool
@@ -295,11 +293,11 @@ func (c *KubernetesClient) Watch() error {
 	for {
 		select {
 		case e, more = <-c.nodeWatcher.ResultChan():
-			updateStore(c.nodeStore, e, EqualUIDs)
+			updateStore(c.nodeStore, e)
 		case e, more = <-c.serviceWatcher.ResultChan():
-			updateStore(c.serviceStore, e, EqualUIDs)
+			updateStore(c.serviceStore, e)
 		case e, more = <-c.endpointsWatcher.ResultChan():
-			updateStore(c.endpointsStore, e, EqualEndpoints)
+			updateStore(c.endpointsStore, e)
 		}
 
 		// Used in tests to know when events have been processed
