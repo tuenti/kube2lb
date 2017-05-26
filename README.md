@@ -122,7 +122,7 @@ kind: Service
 metadata:
   annotations:
     kube2lb/port-mode: |
-      { "mysql": "tcp" }
+      { "mysql": "tcp", "healthz": "http" }
 ...
 ```
 The annotation must be a string to string map represented as valid JSON, with
