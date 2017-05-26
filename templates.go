@@ -85,6 +85,7 @@ type ServiceInformation struct {
 	Endpoints []ServiceEndpoint
 	NodePort  int32
 	External  []string
+	Timeout   int
 }
 
 type ClusterInformation struct {
