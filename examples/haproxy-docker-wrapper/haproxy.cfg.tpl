@@ -12,7 +12,7 @@ global
 	stats socket /var/lib/haproxy/socket{{ $i }} process {{ $i }} mode 600 level admin
 {{- end }}
 {{- else }}
-    stats socket /var/lib/haproxy/socket mode 600 level admin
+	stats socket /var/lib/haproxy/socket mode 600 level admin
 {{- end }}
 
 
@@ -25,11 +25,11 @@ defaults
 	http-reuse aggressive
 	retries    3
 	option     redispatch
-	timeout connect 3s
-	timeout client  120s
-	timeout server  30s
-	timeout http-keep-alive 120s
-	timeout tunnel  1h
+	timeout connect __HAPROXY_TIMEOUT_CONNECT__
+	timeout client  __HAPROXY_TIMEOUT_CLIENT__
+	timeout server  __HAPROXY_TIMEOUT_SERVER__
+	timeout http-keep-alive __HAPROXY_TIMEOUT_KEEPALIVE__
+	timeout tunnel  __HAPROXY_TIMEOUT_TUNNEL__
 
 {{ range $i, $port := $ports }}
 frontend frontend_{{ $port.String }}
@@ -66,6 +66,9 @@ backend backend_{{ $label }}
 {{- end }}
 {{- if eq $service.Port.Mode "tcp" }}
 	mode tcp
+{{- end }}
+{{- if gt $service.Timeout 0 }}
+	timeout server {{ $service.Timeout }}
 {{- end }}
 	{{ range $i, $endpoint := $service.Endpoints }}
 	server {{ EscapeNode $endpoint.Name }} {{ $endpoint }} maxconn __HAPROXY_SERVER_MAXCONN__ check inter 5s downinter 10s slowstart 60s{{ end }}

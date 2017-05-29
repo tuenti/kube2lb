@@ -68,6 +68,7 @@ type KubernetesClient struct {
 const (
 	ExternalDomainsAnnotation = "kube2lb/external-domains"
 	PortModeAnnotation        = "kube2lb/port-mode"
+	BackendTimeoutAnnotation  = "kube2lb/backend-timeout"
 )
 
 func NewKubernetesClient(kubecfg, apiserver, domain string) (*KubernetesClient, error) {
@@ -147,6 +148,16 @@ func (c *KubernetesClient) ExecuteTemplates(info *ClusterInformation) {
 	}
 }
 
+func (c *KubernetesClient) readAnnotation(meta v1.ObjectMeta, annotation string, value interface{}) {
+	data, ok := meta.Annotations[annotation]
+	if ok && len(data) > 0 {
+		err := json.Unmarshal([]byte(data), value)
+		if err != nil {
+			log.Printf("Couldn't parse %s annotation for %s service: %s", annotation, meta.Name, err)
+		}
+	}
+}
+
 func (c *KubernetesClient) getServices() ([]ServiceInformation, error) {
 	services, err := c.serviceStore.List()
 	if err != nil {
@@ -166,13 +177,12 @@ func (c *KubernetesClient) getServices() ([]ServiceInformation, error) {
 		if domains, ok := s.ObjectMeta.Annotations[ExternalDomainsAnnotation]; ok && len(domains) > 0 {
 			external = strings.Split(domains, ",")
 		}
+
 		var portModes map[string]string
-		if modes, ok := s.ObjectMeta.Annotations[PortModeAnnotation]; ok && len(modes) > 0 {
-			err := json.Unmarshal([]byte(modes), &portModes)
-			if err != nil {
-				log.Printf("Couldn't parse %s annotation for %s service", PortModeAnnotation, s.Name)
-			}
-		}
+		c.readAnnotation(s.ObjectMeta, PortModeAnnotation, &portModes)
+
+		var backendTimeouts map[string]int
+		c.readAnnotation(s.ObjectMeta, BackendTimeoutAnnotation, &backendTimeouts)
 
 		switch s.Spec.Type {
 		case v1.ServiceTypeNodePort, v1.ServiceTypeLoadBalancer:
@@ -187,6 +197,10 @@ func (c *KubernetesClient) getServices() ([]ServiceInformation, error) {
 				if !ok {
 					mode = defaultPortMode
 				}
+				timeout, ok := backendTimeouts[port.Name]
+				if !ok {
+					timeout = 0
+				}
 				servicesInformation = append(servicesInformation,
 					ServiceInformation{
 						Name:      s.Name,
@@ -199,6 +213,7 @@ func (c *KubernetesClient) getServices() ([]ServiceInformation, error) {
 						Endpoints: endpointsPortsMap[port.TargetPort.IntVal],
 						NodePort:  port.NodePort,
 						External:  external,
+						Timeout:   timeout,
 					},
 				)
 			}

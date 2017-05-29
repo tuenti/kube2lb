@@ -122,12 +122,43 @@ kind: Service
 metadata:
   annotations:
     kube2lb/port-mode: |
-      { "mysql": "tcp" }
+      { "mysql": "tcp", "healthz": "http" }
 ...
 ```
 The annotation must be a string to string map represented as valid JSON, with
 the port name as key and the mode as value. Ports must declare their names
 in order to use this feature.
+
+### Timeouts
+
+For convenience, kube2lb allows to declare per-service backend timeouts using
+kubernetes annotations. Other timeouts are assumed to be global, so they can
+be declared on specific templates.
+
+To declare the backend timeout for a service:
+
+```
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kube2lb/backend-timeout: |
+      { "http": 20000 }
+...
+```
+The annotation must be a string to integer map represented as valid JSON, with
+the port name as key and the timeout in milliseconds as value. Ports must declare
+their names in order to use this feature.
+
+They can be used in templates as an attribute of each service:
+
+```
+{{- range $i, $service := $services }}
+{{- if gt $service.Timeout 0 }}
+timeout server {{ $service.Timeout }}
+{{- end }}
+{{- end }}
+```
 
 ### Notifiers
 
