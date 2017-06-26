@@ -104,6 +104,12 @@ func (c *KubernetesClient) connect() (err error) {
 		ResourceVersion: c.lastResourceVersion,
 	}
 
+	defer func() {
+		if err != nil {
+			c.stopWatchers()
+		}
+	}()
+
 	ni := c.clientset.Core().Nodes()
 	c.nodeWatcher, err = ni.Watch(options)
 	if err != nil {
@@ -122,6 +128,18 @@ func (c *KubernetesClient) connect() (err error) {
 		return fmt.Errorf("couldn't watch events on endpoints: %v", err)
 	}
 	return
+}
+
+func (c *KubernetesClient) stopWatchers() {
+	if c.nodeWatcher != nil {
+		c.nodeWatcher.Stop()
+	}
+	if c.serviceWatcher != nil {
+		c.serviceWatcher.Stop()
+	}
+	if c.endpointsWatcher != nil {
+		c.endpointsWatcher.Stop()
+	}
 }
 
 func (c *KubernetesClient) AddNotifier(n Notifier) {
@@ -321,6 +339,7 @@ func (c *KubernetesClient) Watch() error {
 		}
 
 		if !more {
+			c.stopWatchers()
 			log.Printf("Connection closed, trying to reconnect...")
 			timeout := time.Duration(reconnectTimeoutSeconds) * time.Second
 			err := wait.Poll(5*time.Second, timeout, func() (bool, error) {
