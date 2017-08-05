@@ -9,7 +9,8 @@ load balancer to reload the configuration.
 
 It's intended to be used on Kubernetes clusters deployed on bare-metal that
 need to expose services to applications running out of the cluster, with a
-similar approach to cloud providers in Kubernetes.
+similar approach to cloud providers in Kubernetes. All services of types
+`LoadBalancer` or `NodePort` are exposed.
 
 ## Quick start
 
@@ -30,13 +31,13 @@ kube2lb -kubecfg=~/.kube/config \
 ```
 
 This will read Kubernetes client configuration from `~/.kube/config`, the
-template from the examples directory and will pass the domain `cluster.local`
+template from the `examples` directory and will pass the domain `cluster.local`
 to the template execution to generate the host names. Then when something
 changes it will generate the configuration file and notify on the process
 whose PID is the one in caddy.pid with the `SIGUSR1` signal, the one used
 by Caddy for online configuration reload.
 
-You can see examples in the `examples` directory.
+You can see examples in the `[examples](examples)` directory.
 
 ## Compiling
 
