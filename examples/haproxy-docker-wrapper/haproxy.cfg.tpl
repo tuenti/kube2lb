@@ -19,9 +19,7 @@ global
 defaults
 	log        global
 	mode       http
-	option     httplog
 	option     dontlognull
-	option     forwardfor
 	http-reuse aggressive
 	retries    3
 	option     redispatch
@@ -35,6 +33,10 @@ defaults
 frontend frontend_{{ $port.String }}
 	bind *:{{ $port.Port }}
 	maxconn __HAPROXY_FRONTEND_MAXCONN__
+{{- if eq $port.Mode "http" }}
+	option httplog
+	option forwardfor
+{{- end }}
 {{- range $i, $service := $services }}
 {{- if eq $service.Port.String $port.String }}
 {{- $label := printf "%s_%s_%s" $service.Name $service.Namespace $service.Port }}
@@ -49,7 +51,8 @@ frontend frontend_{{ $port.String }}
 	use_backend backend_{{ $label }} if svc_{{ $label }}
 {{- end }}
 {{- if eq $port.Mode "tcp" }}
-	mode tcp
+	mode   tcp
+	option tcplog
 
 	use_backend backend_{{ $label }}
 {{- end }}
@@ -63,9 +66,12 @@ backend backend_{{ $label }}
 	balance leastconn
 {{- if eq $service.Port.Mode "http" }}
 	option http-server-close
+	option httplog
+	option forwardfor
 {{- end }}
 {{- if eq $service.Port.Mode "tcp" }}
-	mode tcp
+	mode    tcp
+	options tcplog
 {{- end }}
 {{- if gt $service.Timeout 0 }}
 	timeout server {{ $service.Timeout }}
