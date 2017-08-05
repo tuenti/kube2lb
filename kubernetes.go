@@ -1,5 +1,5 @@
 /*
-Copyright 2016 Tuenti Technologies S.L. All rights reserved.
+Copyright 2017 Tuenti Technologies S.L. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -209,6 +209,12 @@ func (c *KubernetesClient) getServices() ([]ServiceInformation, error) {
 			if len(endpointsPortsMap) == 0 {
 				log.Printf("Couldn't find endpoints for %s in %s?", s.Name, s.Namespace)
 				continue
+			}
+
+			err := ephemeralPortsRange.ValidateService(s)
+			if err != nil {
+				log.Printf("Service validation failed: %s", err)
+				break
 			}
 
 			for _, port := range s.Spec.Ports {
