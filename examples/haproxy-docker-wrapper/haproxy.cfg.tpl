@@ -35,7 +35,7 @@ frontend frontend_{{ $port.String }}
 	maxconn __HAPROXY_FRONTEND_MAXCONN__
 {{- if eq $port.Mode "http" }}
 	option httplog
-	option forwardfor
+	option forwardfor if-none
 {{- end }}
 {{- range $i, $service := $services }}
 {{- if eq $service.Port.String $port.String }}
@@ -66,7 +66,6 @@ backend backend_{{ $label }}
 	balance leastconn
 {{- if eq $service.Port.Mode "http" }}
 	option httplog
-	option forwardfor
 	option http-server-close
 {{- end }}
 {{- if eq $service.Port.Mode "tcp" }}
