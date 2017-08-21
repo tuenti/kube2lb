@@ -23,9 +23,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/pkg/api/v1"
-	"k8s.io/client-go/pkg/util/intstr"
-	"k8s.io/client-go/pkg/watch"
 )
 
 type testWatcher struct {
@@ -134,19 +135,19 @@ func TestKubernetesWatch(t *testing.T) {
 		watch.Event{
 			Type: watch.Added,
 			Object: &v1.Node{
-				ObjectMeta: v1.ObjectMeta{SelfLink: "/node/1", Name: "node1", UID: "1"},
+				ObjectMeta: meta_v1.ObjectMeta{SelfLink: "/node/1", Name: "node1", UID: "1"},
 			},
 		},
 		watch.Event{
 			Type: watch.Added,
 			Object: &v1.Node{
-				ObjectMeta: v1.ObjectMeta{SelfLink: "/node/2", Name: "node2", UID: "2"},
+				ObjectMeta: meta_v1.ObjectMeta{SelfLink: "/node/2", Name: "node2", UID: "2"},
 			},
 		},
 		watch.Event{
 			Type: watch.Deleted,
 			Object: &v1.Node{
-				ObjectMeta: v1.ObjectMeta{SelfLink: "/node/1", Name: "node1", UID: "1"},
+				ObjectMeta: meta_v1.ObjectMeta{SelfLink: "/node/1", Name: "node1", UID: "1"},
 			},
 		},
 	}
@@ -155,7 +156,7 @@ func TestKubernetesWatch(t *testing.T) {
 		watch.Event{
 			Type: watch.Added,
 			Object: &v1.Service{
-				ObjectMeta: v1.ObjectMeta{SelfLink: "/service/1", Name: "service1", Namespace: "test", ResourceVersion: "3"},
+				ObjectMeta: meta_v1.ObjectMeta{SelfLink: "/service/1", Name: "service1", Namespace: "test", ResourceVersion: "3"},
 				Spec: v1.ServiceSpec{
 					Type: v1.ServiceTypeNodePort,
 					Ports: []v1.ServicePort{
@@ -169,7 +170,7 @@ func TestKubernetesWatch(t *testing.T) {
 		watch.Event{
 			Type: watch.Added,
 			Object: &v1.Service{
-				ObjectMeta: v1.ObjectMeta{SelfLink: "/service/2", Name: "service2", Namespace: "test", ResourceVersion: "4"},
+				ObjectMeta: meta_v1.ObjectMeta{SelfLink: "/service/2", Name: "service2", Namespace: "test", ResourceVersion: "4"},
 				Spec:       v1.ServiceSpec{Type: v1.ServiceTypeClusterIP},
 			},
 		},
@@ -179,7 +180,7 @@ func TestKubernetesWatch(t *testing.T) {
 		watch.Event{
 			Type: watch.Added,
 			Object: &v1.Endpoints{
-				ObjectMeta: v1.ObjectMeta{SelfLink: "/endpoints/1", Name: "service1", Namespace: "test", ResourceVersion: "5"},
+				ObjectMeta: meta_v1.ObjectMeta{SelfLink: "/endpoints/1", Name: "service1", Namespace: "test", ResourceVersion: "5"},
 				Subsets: []v1.EndpointSubset{
 					{
 						Addresses: []v1.EndpointAddress{{IP: "10.0.0.1"}, {IP: "10.0.0.2"}},
@@ -191,7 +192,7 @@ func TestKubernetesWatch(t *testing.T) {
 		watch.Event{
 			Type: watch.Modified,
 			Object: &v1.Endpoints{
-				ObjectMeta: v1.ObjectMeta{SelfLink: "/endpoints/1", Name: "service1", Namespace: "test", ResourceVersion: "6"},
+				ObjectMeta: meta_v1.ObjectMeta{SelfLink: "/endpoints/1", Name: "service1", Namespace: "test", ResourceVersion: "6"},
 				Subsets: []v1.EndpointSubset{
 					{
 						Addresses: []v1.EndpointAddress{{IP: "10.0.0.1"}},
@@ -247,7 +248,7 @@ func TestKubernetesWatch(t *testing.T) {
 	nodeWatcher.resultChan <- watch.Event{
 		Type: watch.Modified,
 		Object: &v1.Node{
-			ObjectMeta: v1.ObjectMeta{SelfLink: "/node/2", Name: "node2", UID: "2"},
+			ObjectMeta: meta_v1.ObjectMeta{SelfLink: "/node/2", Name: "node2", UID: "2"},
 		},
 	}
 	consumeForwardedEvent()
@@ -258,7 +259,7 @@ func TestKubernetesWatch(t *testing.T) {
 	serviceWatcher.resultChan <- watch.Event{
 		Type: watch.Modified,
 		Object: &v1.Service{
-			ObjectMeta: v1.ObjectMeta{
+			ObjectMeta: meta_v1.ObjectMeta{
 				SelfLink:        "/service/1",
 				Name:            "service1",
 				Namespace:       "test",

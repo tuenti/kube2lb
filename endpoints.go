@@ -19,6 +19,7 @@ package main
 import (
 	"fmt"
 
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/pkg/api/v1"
 )
 
@@ -36,7 +37,7 @@ type EndpointsHelper struct {
 	endpointsMap map[string]*v1.Endpoints
 }
 
-func metaKey(meta v1.ObjectMeta) string {
+func metaKey(meta meta_v1.ObjectMeta) string {
 	return fmt.Sprintf("%s %s", meta.Name, meta.Namespace)
 }
 

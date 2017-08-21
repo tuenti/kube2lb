@@ -19,12 +19,13 @@ package main
 import (
 	"testing"
 
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/pkg/api/v1"
 )
 
 func TestUpdate(t *testing.T) {
-	service1 := &v1.Service{ObjectMeta: v1.ObjectMeta{SelfLink: "/foo/1", UID: "1"}}
-	service2 := &v1.Service{ObjectMeta: v1.ObjectMeta{SelfLink: "/foo/1", UID: "2"}}
+	service1 := &v1.Service{ObjectMeta: meta_v1.ObjectMeta{SelfLink: "/foo/1", UID: "1"}}
+	service2 := &v1.Service{ObjectMeta: meta_v1.ObjectMeta{SelfLink: "/foo/1", UID: "2"}}
 
 	store := NewLocalStore()
 
@@ -46,8 +47,8 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	service1 := &v1.Service{ObjectMeta: v1.ObjectMeta{SelfLink: "/foo/1", UID: "1"}}
-	service2 := &v1.Service{ObjectMeta: v1.ObjectMeta{SelfLink: "/foo/1", UID: "2"}}
+	service1 := &v1.Service{ObjectMeta: meta_v1.ObjectMeta{SelfLink: "/foo/1", UID: "1"}}
+	service2 := &v1.Service{ObjectMeta: meta_v1.ObjectMeta{SelfLink: "/foo/1", UID: "2"}}
 
 	store := NewLocalStore()
 
@@ -72,8 +73,8 @@ func TestDelete(t *testing.T) {
 
 func TestGetNodeNames(t *testing.T) {
 	nodes := []*v1.Node{
-		&v1.Node{ObjectMeta: v1.ObjectMeta{SelfLink: "/node/1", Name: "node1"}},
-		&v1.Node{ObjectMeta: v1.ObjectMeta{SelfLink: "/node/2", Name: "node2"}},
+		&v1.Node{ObjectMeta: meta_v1.ObjectMeta{SelfLink: "/node/1", Name: "node1"}},
+		&v1.Node{ObjectMeta: meta_v1.ObjectMeta{SelfLink: "/node/2", Name: "node2"}},
 	}
 
 	store := NodeStore{NewLocalStore()}
@@ -100,9 +101,9 @@ func TestGetNodeNames(t *testing.T) {
 
 func TestListServices(t *testing.T) {
 	services := []*v1.Service{
-		&v1.Service{ObjectMeta: v1.ObjectMeta{SelfLink: "/service/1", Name: "service1"}},
-		&v1.Service{ObjectMeta: v1.ObjectMeta{SelfLink: "/service/2", Name: "service2"}},
-		&v1.Service{ObjectMeta: v1.ObjectMeta{SelfLink: "/service/3", Name: "service3"}},
+		&v1.Service{ObjectMeta: meta_v1.ObjectMeta{SelfLink: "/service/1", Name: "service1"}},
+		&v1.Service{ObjectMeta: meta_v1.ObjectMeta{SelfLink: "/service/2", Name: "service2"}},
+		&v1.Service{ObjectMeta: meta_v1.ObjectMeta{SelfLink: "/service/3", Name: "service3"}},
 	}
 
 	store := ServiceStore{NewLocalStore()}
@@ -132,9 +133,9 @@ func TestListServices(t *testing.T) {
 
 func TestListEndpoints(t *testing.T) {
 	endpoints := []*v1.Endpoints{
-		&v1.Endpoints{ObjectMeta: v1.ObjectMeta{SelfLink: "/endpoints/1", Name: "endpoints1"}},
-		&v1.Endpoints{ObjectMeta: v1.ObjectMeta{SelfLink: "/endpoints/2", Name: "endpoints2"}},
-		&v1.Endpoints{ObjectMeta: v1.ObjectMeta{SelfLink: "/endpoints/3", Name: "endpoints3"}},
+		&v1.Endpoints{ObjectMeta: meta_v1.ObjectMeta{SelfLink: "/endpoints/1", Name: "endpoints1"}},
+		&v1.Endpoints{ObjectMeta: meta_v1.ObjectMeta{SelfLink: "/endpoints/2", Name: "endpoints2"}},
+		&v1.Endpoints{ObjectMeta: meta_v1.ObjectMeta{SelfLink: "/endpoints/3", Name: "endpoints3"}},
 	}
 
 	store := EndpointsStore{NewLocalStore()}

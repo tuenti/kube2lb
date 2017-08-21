@@ -19,14 +19,15 @@ package main
 import (
 	"testing"
 
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/pkg/api/v1"
-	"k8s.io/client-go/pkg/util/intstr"
 )
 
 func TestOnePortInRange(t *testing.T) {
 	r := EphemeralPortsRange{check: true, LowPort: 20000, HighPort: 40000}
 	s := &v1.Service{
-		ObjectMeta: v1.ObjectMeta{SelfLink: "/service/1", Name: "service1", Namespace: "test", ResourceVersion: "3"},
+		ObjectMeta: meta_v1.ObjectMeta{SelfLink: "/service/1", Name: "service1", Namespace: "test", ResourceVersion: "3"},
 		Spec: v1.ServiceSpec{
 			Type: v1.ServiceTypeNodePort,
 			Ports: []v1.ServicePort{
@@ -46,7 +47,7 @@ func TestOnePortInRange(t *testing.T) {
 func TestOnePortNotInRange(t *testing.T) {
 	r := EphemeralPortsRange{check: true, LowPort: 20000, HighPort: 40000}
 	s := &v1.Service{
-		ObjectMeta: v1.ObjectMeta{SelfLink: "/service/1", Name: "service1", Namespace: "test", ResourceVersion: "3"},
+		ObjectMeta: meta_v1.ObjectMeta{SelfLink: "/service/1", Name: "service1", Namespace: "test", ResourceVersion: "3"},
 		Spec: v1.ServiceSpec{
 			Type: v1.ServiceTypeNodePort,
 			Ports: []v1.ServicePort{
@@ -66,7 +67,7 @@ func TestOnePortNotInRange(t *testing.T) {
 func TestMultiPortInRange(t *testing.T) {
 	r := EphemeralPortsRange{check: true, LowPort: 20000, HighPort: 40000}
 	s := &v1.Service{
-		ObjectMeta: v1.ObjectMeta{SelfLink: "/service/1", Name: "service1", Namespace: "test", ResourceVersion: "3"},
+		ObjectMeta: meta_v1.ObjectMeta{SelfLink: "/service/1", Name: "service1", Namespace: "test", ResourceVersion: "3"},
 		Spec: v1.ServiceSpec{
 			Type: v1.ServiceTypeNodePort,
 			Ports: []v1.ServicePort{
@@ -89,7 +90,7 @@ func TestMultiPortInRange(t *testing.T) {
 func TestMultiPortAllNotInRange(t *testing.T) {
 	r := EphemeralPortsRange{check: true, LowPort: 20000, HighPort: 40000}
 	s := &v1.Service{
-		ObjectMeta: v1.ObjectMeta{SelfLink: "/service/1", Name: "service1", Namespace: "test", ResourceVersion: "3"},
+		ObjectMeta: meta_v1.ObjectMeta{SelfLink: "/service/1", Name: "service1", Namespace: "test", ResourceVersion: "3"},
 		Spec: v1.ServiceSpec{
 			Type: v1.ServiceTypeNodePort,
 			Ports: []v1.ServicePort{
@@ -112,7 +113,7 @@ func TestMultiPortAllNotInRange(t *testing.T) {
 func TestMultiPortOneInRange(t *testing.T) {
 	r := EphemeralPortsRange{check: true, LowPort: 20000, HighPort: 40000}
 	s := &v1.Service{
-		ObjectMeta: v1.ObjectMeta{SelfLink: "/service/1", Name: "service1", Namespace: "test", ResourceVersion: "3"},
+		ObjectMeta: meta_v1.ObjectMeta{SelfLink: "/service/1", Name: "service1", Namespace: "test", ResourceVersion: "3"},
 		Spec: v1.ServiceSpec{
 			Type: v1.ServiceTypeNodePort,
 			Ports: []v1.ServicePort{
@@ -135,7 +136,7 @@ func TestMultiPortOneInRange(t *testing.T) {
 func TestSanityCheckDisabled(t *testing.T) {
 	r := EphemeralPortsRange{check: false, LowPort: 0, HighPort: 0}
 	s := &v1.Service{
-		ObjectMeta: v1.ObjectMeta{SelfLink: "/service/1", Name: "service1", Namespace: "test", ResourceVersion: "3"},
+		ObjectMeta: meta_v1.ObjectMeta{SelfLink: "/service/1", Name: "service1", Namespace: "test", ResourceVersion: "3"},
 		Spec: v1.ServiceSpec{
 			Type: v1.ServiceTypeNodePort,
 			Ports: []v1.ServicePort{
