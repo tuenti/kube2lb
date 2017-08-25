@@ -24,13 +24,13 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/meta"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api"
-	"k8s.io/client-go/pkg/api/meta"
-	"k8s.io/client-go/pkg/api/unversioned"
 	"k8s.io/client-go/pkg/api/v1"
-	"k8s.io/client-go/pkg/util/wait"
-	"k8s.io/client-go/pkg/watch"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -101,7 +101,7 @@ func NewKubernetesClient(kubecfg, apiserver, domain string) (*KubernetesClient, 
 func (c *KubernetesClient) connect() (err error) {
 	log.Printf("Using %s for kubernetes master", c.config.Host)
 
-	options := v1.ListOptions{
+	options := meta_v1.ListOptions{
 		ResourceVersion: c.lastResourceVersion,
 	}
 
@@ -167,7 +167,7 @@ func (c *KubernetesClient) ExecuteTemplates(info *ClusterInformation) {
 	}
 }
 
-func (c *KubernetesClient) readAnnotation(meta v1.ObjectMeta, annotation string, value interface{}) {
+func (c *KubernetesClient) readAnnotation(meta meta_v1.ObjectMeta, annotation string, value interface{}) {
 	data, ok := meta.Annotations[annotation]
 	if ok && len(data) > 0 {
 		err := json.Unmarshal([]byte(data), value)
@@ -322,7 +322,7 @@ func (c *KubernetesClient) Watch() error {
 		case watch.Deleted:
 			s.Delete(e.Object)
 		case watch.Error:
-			status, ok := e.Object.(*unversioned.Status)
+			status, ok := e.Object.(*meta_v1.Status)
 			if ok {
 				log.Printf("Error received while watching: %s", status.Message)
 			}
