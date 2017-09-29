@@ -20,7 +20,7 @@ defaults
 	log        global
 	mode       http
 	option     dontlognull
-	http-reuse aggressive
+	http-reuse __HAPROXY_HTTP_REUSE__
 	retries    3
 	option     redispatch
 	timeout connect __HAPROXY_TIMEOUT_CONNECT__
