@@ -18,8 +18,10 @@ package main
 
 import (
 	"bytes"
+	"encoding/hex"
 	"flag"
 	"fmt"
+	"net"
 	"os"
 	"path"
 	"strings"
@@ -69,13 +71,22 @@ func initServerNameTemplates() (err error) {
 }
 
 type PortSpec struct {
+	IP       net.IP
 	Port     int32
 	Mode     string
 	Protocol string
 }
 
+// String representation of a PortSpec, intended to be used as config label
 func (s PortSpec) String() string {
-	return fmt.Sprintf("%d_%s_%s", s.Port, s.Protocol, s.Mode)
+	var encodedIP string
+	if s.IP.To4() != nil {
+		// No need to use more than 4 bytes if it is an IPv4 address
+		encodedIP = hex.EncodeToString(s.IP.To4())
+	} else {
+		encodedIP = hex.EncodeToString(s.IP)
+	}
+	return fmt.Sprintf("%s_%d_%s_%s", encodedIP, s.Port, s.Protocol, s.Mode)
 }
 
 type ServiceInformation struct {
@@ -86,6 +97,12 @@ type ServiceInformation struct {
 	NodePort  int32
 	External  []string
 	Timeout   int
+}
+
+// String representation of a Service, intended to be used as config label
+func (s ServiceInformation) String() string {
+	return fmt.Sprintf("%s_%s_%d_%s_%s",
+		s.Name, s.Namespace, s.Port.Port, s.Port.Protocol, s.Port.Mode)
 }
 
 type ClusterInformation struct {

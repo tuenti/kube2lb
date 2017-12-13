@@ -21,6 +21,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"strings"
 	"time"
 
@@ -35,10 +36,12 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+var defaultLBIP = net.IPv4zero.String()
 var defaultPortMode = "http"
 var reconnectTimeoutSeconds = 300
 
 func init() {
+	flag.StringVar(&defaultLBIP, "default-lb-ip", defaultLBIP, "Default IP for services in load balancer, can be overriden by loadBalancerIP service field")
 	flag.StringVar(&defaultPortMode, "default-port-mode", defaultPortMode, "Default mode for service ports")
 	flag.IntVar(&reconnectTimeoutSeconds, "reconnect-timeout", reconnectTimeoutSeconds, "Reconnect timeout in seconds")
 }
@@ -217,6 +220,16 @@ func (c *KubernetesClient) getServices() ([]ServiceInformation, error) {
 				break
 			}
 
+			parsedLBIP := net.ParseIP(defaultLBIP)
+			if s.Spec.Type == v1.ServiceTypeLoadBalancer && s.Spec.LoadBalancerIP != "" {
+				parsedLBIP = net.ParseIP(s.Spec.LoadBalancerIP)
+				if parsedLBIP == nil {
+					log.Printf("Couldn't parse IP '%s' for service %s in %s",
+						s.Spec.LoadBalancerIP, s.Name, s.Namespace)
+					break
+				}
+			}
+
 			for _, port := range s.Spec.Ports {
 				mode, ok := portModes[port.Name]
 				if !ok {
@@ -231,9 +244,10 @@ func (c *KubernetesClient) getServices() ([]ServiceInformation, error) {
 						Name:      s.Name,
 						Namespace: s.Namespace,
 						Port: PortSpec{
-							port.Port,
-							strings.ToLower(mode),
-							strings.ToLower(string(port.Protocol)),
+							IP:       parsedLBIP,
+							Port:     port.Port,
+							Mode:     strings.ToLower(mode),
+							Protocol: strings.ToLower(string(port.Protocol)),
 						},
 						Endpoints: endpointsPortsMap[port.TargetPort.IntVal],
 						NodePort:  port.NodePort,
@@ -250,17 +264,21 @@ func (c *KubernetesClient) getServices() ([]ServiceInformation, error) {
 func (c *KubernetesClient) Update() error {
 	nodeNames := c.nodeStore.GetNames()
 
+	if net.ParseIP(defaultLBIP) == nil {
+		return fmt.Errorf("invalid default lb IP %s", defaultLBIP)
+	}
+
 	services, err := c.getServices()
 	if err != nil {
 		return fmt.Errorf("couldn't get services: %s", err)
 	}
 
-	portsMap := make(map[PortSpec]bool)
+	portsMap := make(map[string]PortSpec)
 	for _, service := range services {
-		portsMap[service.Port] = true
+		portsMap[service.Port.String()] = service.Port
 	}
 	ports := make([]PortSpec, 0, len(portsMap))
-	for port := range portsMap {
+	for _, port := range portsMap {
 		ports = append(ports, port)
 	}
 
