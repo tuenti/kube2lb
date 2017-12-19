@@ -23,4 +23,4 @@ sed -i $TEMPLATE \
 	-e "s/__HAPROXY_TIMEOUT_TUNNEL__/$HAPROXY_TIMEOUT_TUNNEL/" \
 	-e "s/__SYSLOG__/$SYSLOG/"
 
-exec kube2lb -apiserver="$APISERVER" -kubecfg="$KUBECFG" -template="$TEMPLATE" -server-name-templates="$SERVER_NAME_TEMPLATES" -config="$CONFFILE" -domain="$DOMAIN" -notify=command:"curl -s http://$HAPROXY_WRAPPER_CONTROL/reload"
+exec kube2lb -apiserver="$APISERVER" -kubecfg="$KUBECFG" -template="$TEMPLATE" -server-name-templates="$SERVER_NAME_TEMPLATES" -config="$CONFFILE" -domain="$DOMAIN" -default-lb-ip="$DEFAULT_LB_IP" -notify=command:"curl -s http://$HAPROXY_WRAPPER_CONTROL/reload"
