@@ -214,7 +214,7 @@ func (c *KubernetesClient) getServices() ([]ServiceInformation, error) {
 				continue
 			}
 
-			err := ephemeralPortsRange.ValidateService(s)
+			err := ValidateService(s)
 			if err != nil {
 				log.Printf("Service validation failed: %s", err)
 				break
@@ -223,11 +223,6 @@ func (c *KubernetesClient) getServices() ([]ServiceInformation, error) {
 			parsedLBIP := net.ParseIP(defaultLBIP)
 			if s.Spec.Type == v1.ServiceTypeLoadBalancer && s.Spec.LoadBalancerIP != "" {
 				parsedLBIP = net.ParseIP(s.Spec.LoadBalancerIP)
-				if parsedLBIP == nil {
-					log.Printf("Couldn't parse IP '%s' for service %s in %s",
-						s.Spec.LoadBalancerIP, s.Name, s.Namespace)
-					break
-				}
 			}
 
 			for _, port := range s.Spec.Ports {
