@@ -30,8 +30,8 @@ defaults
 	timeout tunnel  __HAPROXY_TIMEOUT_TUNNEL__
 
 {{ range $i, $port := $ports }}
-frontend frontend_{{ $port.String }}
-	bind *:{{ $port.Port }}
+frontend frontend_{{ $port }}
+	bind {{ $port.IP }}:{{ $port.Port }}
 	maxconn __HAPROXY_FRONTEND_MAXCONN__
 {{- if eq $port.Mode "http" }}
 	option httplog
@@ -39,30 +39,28 @@ frontend frontend_{{ $port.String }}
 {{- end }}
 {{- range $i, $service := $services }}
 {{- if eq $service.Port.String $port.String }}
-{{- $label := printf "%s_%s_%s" $service.Name $service.Namespace $service.Port }}
 {{- if eq $port.Mode "http" }}
 	{{ range $serverName := ServerNames $service $domain }}
 	{{- if $serverName.IsRegexp }}
-	acl svc_{{ $label }} hdr_reg(host) {{ $serverName.Regexp }}
+	acl svc_{{ $service }} hdr_reg(host) {{ $serverName.Regexp }}
 	{{- else }}
-	acl svc_{{ $label }} hdr_dom(host) -i {{ $serverName }}
+	acl svc_{{ $service }} hdr_dom(host) -i {{ $serverName }}
 	{{- end }}
 	{{- end }}
-	use_backend backend_{{ $label }} if svc_{{ $label }}
+	use_backend backend_{{ $service }} if svc_{{ $service }}
 {{- end }}
 {{- if eq $port.Mode "tcp" }}
 	mode   tcp
 	option tcplog
 
-	use_backend backend_{{ $label }}
+	use_backend backend_{{ $service }}
 {{- end }}
 {{- end }}
 {{- end }}
 {{ end }}
 
 {{- range $i, $service := $services }}
-{{- $label := printf "%s_%s_%s" $service.Name $service.Namespace $service.Port }}
-backend backend_{{ $label }}
+backend backend_{{ $service }}
 	balance leastconn
 {{- if eq $service.Port.Mode "http" }}
 	option httplog

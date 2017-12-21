@@ -17,7 +17,9 @@ limitations under the License.
 package main
 
 import (
+	"net"
 	"testing"
+	"time"
 
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -153,5 +155,125 @@ func TestSanityCheckDisabled(t *testing.T) {
 	err := r.ValidateService(s)
 	if err != nil {
 		t.Fatalf("Checks are disabled, should return nil")
+	}
+}
+
+func TestSanityCheckLBAddressCheckLocalBind(t *testing.T) {
+	a := AddressForLoadBalancerIP{
+		checkLocalBind: true,
+		addressesTime:  time.Now(), // TODO: This can hide a race condition
+		interfaceAddresses: []net.Addr{
+			&net.IPNet{IP: net.ParseIP("127.0.0.1")},
+			&net.IPNet{IP: net.ParseIP("192.168.1.1")},
+		},
+	}
+
+	serviceCases := []struct {
+		desc       string
+		service    *v1.Service
+		expectedOk bool
+	}{
+		{
+			"OK LoadBalancer Service",
+			&v1.Service{
+				ObjectMeta: meta_v1.ObjectMeta{SelfLink: "/service/1", Name: "service1", Namespace: "test", ResourceVersion: "3"},
+				Spec:       v1.ServiceSpec{Type: "LoadBalancer", LoadBalancerIP: "127.0.0.1"},
+			},
+			true,
+		},
+		{
+			"Non-loadBalancer Service, not checked",
+			&v1.Service{
+				ObjectMeta: meta_v1.ObjectMeta{SelfLink: "/service/1", Name: "service1", Namespace: "test", ResourceVersion: "3"},
+				Spec:       v1.ServiceSpec{Type: "ClusterIP", LoadBalancerIP: "127.0.0.2"},
+			},
+			true,
+		},
+		{
+			"LoadBalancer Service, wrong IP",
+			&v1.Service{
+				ObjectMeta: meta_v1.ObjectMeta{SelfLink: "/service/1", Name: "service1", Namespace: "test", ResourceVersion: "3"},
+				Spec:       v1.ServiceSpec{Type: "LoadBalancer", LoadBalancerIP: "127.0.0."},
+			},
+			false,
+		},
+		{
+			"LoadBalancer Service, not existing IP",
+			&v1.Service{
+				ObjectMeta: meta_v1.ObjectMeta{SelfLink: "/service/1", Name: "service1", Namespace: "test", ResourceVersion: "3"},
+				Spec:       v1.ServiceSpec{Type: "LoadBalancer", LoadBalancerIP: "127.0.0.2"},
+			},
+			false,
+		},
+	}
+
+	for i, c := range serviceCases {
+		err := a.ValidateService(c.service)
+		if c.expectedOk && err != nil {
+			t.Fatalf("In case #%d: %s, service lb IP address is fine, but error found: %s", i, c.desc, err)
+		}
+		if !c.expectedOk && err == nil {
+			t.Fatalf("Expected failure for case #%d: %s", i, c.desc)
+		}
+	}
+}
+
+func TestSanityCheckLBAddressDontCheckLocalBind(t *testing.T) {
+	a := AddressForLoadBalancerIP{
+		checkLocalBind: false,
+		addressesTime:  time.Now(), // TODO: This can hide a race condition
+		interfaceAddresses: []net.Addr{
+			&net.IPNet{IP: net.ParseIP("127.0.0.1")},
+			&net.IPNet{IP: net.ParseIP("192.168.1.1")},
+		},
+	}
+
+	serviceCases := []struct {
+		desc       string
+		service    *v1.Service
+		expectedOk bool
+	}{
+		{
+			"OK LoadBalancer Service",
+			&v1.Service{
+				ObjectMeta: meta_v1.ObjectMeta{SelfLink: "/service/1", Name: "service1", Namespace: "test", ResourceVersion: "3"},
+				Spec:       v1.ServiceSpec{Type: "LoadBalancer", LoadBalancerIP: "127.0.0.1"},
+			},
+			true,
+		},
+		{
+			"Non-loadBalancer Service, not checked",
+			&v1.Service{
+				ObjectMeta: meta_v1.ObjectMeta{SelfLink: "/service/1", Name: "service1", Namespace: "test", ResourceVersion: "3"},
+				Spec:       v1.ServiceSpec{Type: "ClusterIP", LoadBalancerIP: "127.0.0.2"},
+			},
+			true,
+		},
+		{
+			"LoadBalancer Service, wrong IP",
+			&v1.Service{
+				ObjectMeta: meta_v1.ObjectMeta{SelfLink: "/service/1", Name: "service1", Namespace: "test", ResourceVersion: "3"},
+				Spec:       v1.ServiceSpec{Type: "LoadBalancer", LoadBalancerIP: "127.0.0."},
+			},
+			false,
+		},
+		{
+			"LoadBalancer Service, not existing IP",
+			&v1.Service{
+				ObjectMeta: meta_v1.ObjectMeta{SelfLink: "/service/1", Name: "service1", Namespace: "test", ResourceVersion: "3"},
+				Spec:       v1.ServiceSpec{Type: "LoadBalancer", LoadBalancerIP: "127.0.0.2"},
+			},
+			true,
+		},
+	}
+
+	for i, c := range serviceCases {
+		err := a.ValidateService(c.service)
+		if c.expectedOk && err != nil {
+			t.Fatalf("In case #%d: %s, service lb IP address is fine, but error found: %s", i, c.desc, err)
+		}
+		if !c.expectedOk && err == nil {
+			t.Fatalf("Expected failure for case #%d: %s", i, c.desc)
+		}
 	}
 }
