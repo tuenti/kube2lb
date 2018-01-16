@@ -4,7 +4,6 @@
 global
 	log __SYSLOG__   local0 notice
 	maxconn __HAPROXY_MAXCONN__
-	daemon
 {{- if gt __HAPROXY_NBPROC__ 1 }}
 	nbproc __HAPROXY_NBPROC__
 {{- range $, $i := IntRange __HAPROXY_NBPROC__ 1 1 }}
