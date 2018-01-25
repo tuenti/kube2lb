@@ -1,17 +1,16 @@
 {{ $services := .Services -}}
 {{ $domain := .Domain -}}
 {{ $ports := .Ports -}}
+{{ $nbproc := __HAPROXY_NBPROC__ -}}
+{{ $nbthread := __HAPROXY_NBTHREAD__ -}}
 global
 	log __SYSLOG__   local0 notice
 	maxconn __HAPROXY_MAXCONN__
-{{- if gt __HAPROXY_NBPROC__ 1 }}
-	nbproc __HAPROXY_NBPROC__
-{{- range $, $i := IntRange __HAPROXY_NBPROC__ 1 1 }}
-	cpu-map {{ $i }} {{ $i }}
-	stats socket /var/lib/haproxy/socket{{ $i }} process {{ $i }} mode 600 level admin
-{{- end }}
-{{- else }}
-	stats socket /var/lib/haproxy/socket mode 600 level admin
+	nbproc {{ $nbproc }}
+	nbthread {{ $nbthread }}
+{{- range $i, $cpu := IntRange $nbproc 1 $nbthread }}
+	cpu-map auto:{{ Add $i 1 }}/1-{{ $nbthread }} {{ $cpu }}-{{ Add $cpu $nbthread -1 }}
+	stats socket /var/lib/haproxy/socket{{ Add $i 1 }} process {{ Add $i 1 }} mode 600 level admin
 {{- end }}
 
 

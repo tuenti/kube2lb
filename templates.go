@@ -172,6 +172,14 @@ func intRange(n, initial, step int) chan int {
 	return c
 }
 
+func opAdd(ns ...int) int {
+	r := 0
+	for _, n := range ns {
+		r += n
+	}
+	return r
+}
+
 func (t *templateFile) Execute(info *ClusterInformation) error {
 	funcMap := template.FuncMap{
 		"EscapeNode":  nodeNameReplacer.Replace,
@@ -179,6 +187,7 @@ func (t *templateFile) Execute(info *ClusterInformation) error {
 		"ServerNames": generateServerNames,
 		"ToLower":     strings.ToLower,
 		"ToUpper":     strings.ToUpper,
+		"Add":         opAdd,
 	}
 
 	// template.Execute will use the base name of t.Source
