@@ -37,11 +37,13 @@ type antiBurstUpdater struct {
 }
 
 func NewUpdater(f UpdaterFunc) Updater {
-	return &antiBurstUpdater{
+	u := antiBurstUpdater{
 		signal: make(chan struct{}),
 		burst:  make(chan struct{}),
 		f:      f,
 	}
+	u.updateNeeded.Store(0)
+	return &u
 }
 
 func (u *antiBurstUpdater) antiBurst() {
