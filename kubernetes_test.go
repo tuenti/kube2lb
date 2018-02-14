@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -51,7 +52,7 @@ func newTestNotifier() *testNotifier {
 	return &testNotifier{make(chan struct{}, 10)}
 }
 
-func (n *testNotifier) Notify() error {
+func (n *testNotifier) Notify(context.Context) error {
 	n.waitChan <- struct{}{}
 	return nil
 }
@@ -83,8 +84,8 @@ type dummyUpdater struct {
 	F        UpdaterFunc
 }
 
-func (dummyUpdater) Run() {
-	select {}
+func (dummyUpdater) Run(ctx context.Context) {
+	<-ctx.Done()
 }
 
 func (u *dummyUpdater) Signal() {
@@ -128,7 +129,8 @@ func TestKubernetesWatch(t *testing.T) {
 	template := &dummyTemplate{}
 	client.AddTemplate(template)
 
-	go client.Watch()
+	ctx := context.Background()
+	go client.Watch(ctx)
 
 	// Send events to watchers
 	nodeEvents := []watch.Event{
@@ -225,7 +227,7 @@ func TestKubernetesWatch(t *testing.T) {
 
 	// Check effects
 	assert.Equal(t, updater.Signaled, true, "Updater should have been signaled")
-	updater.F()
+	updater.F(ctx)
 
 	if template.executionCount == 0 {
 		t.Fatal("template not executed")
@@ -278,5 +280,5 @@ func TestKubernetesWatch(t *testing.T) {
 	}
 	consumeForwardedEvent()
 	assert.Equal(t, updater.Signaled, true, "Updater should have been signaled when adding annotation to service")
-	updater.F()
+	updater.F(ctx)
 }

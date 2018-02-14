@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -29,7 +30,7 @@ import (
 )
 
 type Notifier interface {
-	Notify() error
+	Notify(ctx context.Context) error
 }
 
 func NewNotifier(definition string) (Notifier, error) {
@@ -62,10 +63,12 @@ func NewCommandNotifier(definition string) (*CommandNotifier, error) {
 	return &CommandNotifier{definition}, nil
 }
 
-func (n *CommandNotifier) Notify() error {
-	cmd := exec.Command("/bin/sh", "-c", n.command)
+func (n *CommandNotifier) Notify(ctx context.Context) error {
+	cmd := exec.CommandContext(ctx, "/bin/sh", "-c", n.command)
 	output, err := cmd.CombinedOutput()
-	log.Printf("%s", output)
+	if len(output) > 0 {
+		log.Printf("%s", output)
+	}
 	return err
 }
 
@@ -91,7 +94,7 @@ func NewPidNotifier(definition string) (*PidNotifier, error) {
 	return &PidNotifier{pid: pid, signal: signal}, nil
 }
 
-func (n *PidNotifier) Notify() error {
+func (n *PidNotifier) Notify(ctx context.Context) error {
 	return syscall.Kill(n.pid, n.signal)
 }
 
@@ -114,7 +117,7 @@ func NewPidfileNotifier(definition string) (*PidfileNotifier, error) {
 	return &PidfileNotifier{pidfile: pidfile, signal: signal}, nil
 }
 
-func (n *PidfileNotifier) Notify() error {
+func (n *PidfileNotifier) Notify(ctx context.Context) error {
 	c, err := ioutil.ReadFile(n.pidfile)
 	if err != nil {
 		return err
@@ -128,7 +131,7 @@ func (n *PidfileNotifier) Notify() error {
 
 type DebugNotifier struct{}
 
-func (n *DebugNotifier) Notify() error {
+func (n *DebugNotifier) Notify(ctx context.Context) error {
 	log.Printf("Notify")
 	return nil
 }
