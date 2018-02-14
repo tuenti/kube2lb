@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -73,7 +74,7 @@ func main() {
 	client.AddTemplate(NewTemplate(templatePath, configPath))
 	client.AddNotifier(notifier)
 
-	if err := client.Watch(); err != nil {
+	if err := client.Watch(context.Background()); err != nil {
 		log.Fatalf("Couldn't watch Kubernetes API server: %s", err)
 	}
 }

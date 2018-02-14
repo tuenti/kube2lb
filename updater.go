@@ -17,8 +17,8 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
-	"log"
 	"sync/atomic"
 	"time"
 )
@@ -30,11 +30,11 @@ func init() {
 }
 
 type Updater interface {
-	Run()
+	Run(context.Context)
 	Signal()
 }
 
-type UpdaterFunc func()
+type UpdaterFunc func(context.Context)
 
 type UpdaterBuilder func(f UpdaterFunc) Updater
 
@@ -52,7 +52,7 @@ func NewUpdater(f UpdaterFunc) Updater {
 	}
 }
 
-func (u *antiBurstUpdater) antiBurst() {
+func (u *antiBurstUpdater) antiBurst(ctx context.Context) {
 	for {
 		select {
 		case <-u.burst:
@@ -60,26 +60,27 @@ func (u *antiBurstUpdater) antiBurst() {
 			if u.updateNeeded.Load().(int) == 1 {
 				u.signal <- struct{}{}
 			}
+		case <-ctx.Done():
+			return
 		}
 	}
 }
 
-func (u *antiBurstUpdater) Run() {
-	go u.antiBurst()
-	for _ = range u.signal {
+func (u *antiBurstUpdater) Run(ctx context.Context) {
+	go u.antiBurst(ctx)
+	for {
+		select {
+		case <-u.signal:
+		case <-ctx.Done():
+			return
+		}
+
 		u.updateNeeded.Store(0)
 
-		c := make(chan struct{}, 1)
-		go func() {
-			u.f()
-			c <- struct{}{}
-		}()
-
-		select {
-		case <-c:
-		case <-time.After(time.Duration(updateTimeout) * time.Second):
-			log.Println("Update timed out")
-		}
+		timeout := time.Duration(updateTimeout) * time.Second
+		timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
+		u.f(timeoutCtx)
+		cancel()
 	}
 }
 

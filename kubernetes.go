@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -147,9 +148,9 @@ func (c *KubernetesClient) AddNotifier(n Notifier) {
 	c.notifiers = append(c.notifiers, n)
 }
 
-func (c *KubernetesClient) Notify() {
+func (c *KubernetesClient) Notify(ctx context.Context) {
 	for _, n := range c.notifiers {
-		if err := n.Notify(); err != nil {
+		if err := n.Notify(ctx); err != nil {
 			log.Printf("Couldn't notify: %s", err)
 		}
 	}
@@ -247,7 +248,7 @@ func (c *KubernetesClient) getServices() ([]ServiceInformation, error) {
 	return servicesInformation, nil
 }
 
-func (c *KubernetesClient) Update() error {
+func (c *KubernetesClient) Update(ctx context.Context) error {
 	nodeNames := c.nodeStore.GetNames()
 
 	services, err := c.getServices()
@@ -271,16 +272,16 @@ func (c *KubernetesClient) Update() error {
 		Domain:   c.domain,
 	}
 	c.ExecuteTemplates(info)
-	c.Notify()
+	c.Notify(ctx)
 
 	return nil
 }
 
-func (c *KubernetesClient) Watch() error {
+func (c *KubernetesClient) Watch(ctx context.Context) error {
 	isFirstUpdate := true
-	updater := c.updaterBuilder(func() {
+	updater := c.updaterBuilder(func(ctx context.Context) {
 		var err error
-		if err = c.Update(); err != nil {
+		if err = c.Update(ctx); err != nil {
 			log.Printf("Couldn't update state: %s", err)
 		}
 		if isFirstUpdate {
@@ -290,7 +291,7 @@ func (c *KubernetesClient) Watch() error {
 			isFirstUpdate = false
 		}
 	})
-	go updater.Run()
+	go updater.Run(ctx)
 
 	resetStores := func() {
 		isFirstUpdate = true
