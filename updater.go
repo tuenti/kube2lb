@@ -17,9 +17,17 @@ limitations under the License.
 package main
 
 import (
+	"flag"
+	"log"
 	"sync/atomic"
 	"time"
 )
+
+var updateTimeout float64
+
+func init() {
+	flag.Float64Var(&updateTimeout, "update-timeout", 10, "Update timeout in seconds")
+}
 
 type Updater interface {
 	Run()
@@ -60,7 +68,18 @@ func (u *antiBurstUpdater) Run() {
 	go u.antiBurst()
 	for _ = range u.signal {
 		u.updateNeeded.Store(0)
-		u.f()
+
+		c := make(chan struct{}, 1)
+		go func() {
+			u.f()
+			c <- struct{}{}
+		}()
+
+		select {
+		case <-c:
+		case <-time.After(time.Duration(updateTimeout) * time.Second):
+			log.Println("Update timed out")
+		}
 	}
 }
 
