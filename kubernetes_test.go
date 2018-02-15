@@ -84,7 +84,7 @@ type dummyUpdater struct {
 	F        UpdaterFunc
 }
 
-func (dummyUpdater) Run(ctx context.Context) {
+func (*dummyUpdater) Run(ctx context.Context) {
 	<-ctx.Done()
 }
 
