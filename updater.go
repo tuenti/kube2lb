@@ -17,16 +17,24 @@ limitations under the License.
 package main
 
 import (
+	"context"
+	"flag"
 	"sync/atomic"
 	"time"
 )
 
+var updateTimeout float64
+
+func init() {
+	flag.Float64Var(&updateTimeout, "update-timeout", 10, "Update timeout in seconds")
+}
+
 type Updater interface {
-	Run()
+	Run(context.Context)
 	Signal()
 }
 
-type UpdaterFunc func()
+type UpdaterFunc func(context.Context)
 
 type UpdaterBuilder func(f UpdaterFunc) Updater
 
@@ -46,7 +54,7 @@ func NewUpdater(f UpdaterFunc) Updater {
 	return &u
 }
 
-func (u *antiBurstUpdater) antiBurst() {
+func (u *antiBurstUpdater) antiBurst(ctx context.Context) {
 	for {
 		select {
 		case <-u.burst:
@@ -54,15 +62,27 @@ func (u *antiBurstUpdater) antiBurst() {
 			if u.updateNeeded.Load().(int) == 1 {
 				u.signal <- struct{}{}
 			}
+		case <-ctx.Done():
+			return
 		}
 	}
 }
 
-func (u *antiBurstUpdater) Run() {
-	go u.antiBurst()
-	for _ = range u.signal {
+func (u *antiBurstUpdater) Run(ctx context.Context) {
+	go u.antiBurst(ctx)
+	for {
+		select {
+		case <-u.signal:
+		case <-ctx.Done():
+			return
+		}
+
 		u.updateNeeded.Store(0)
-		u.f()
+
+		timeout := time.Duration(updateTimeout) * time.Second
+		timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
+		u.f(timeoutCtx)
+		cancel()
 	}
 }
 
