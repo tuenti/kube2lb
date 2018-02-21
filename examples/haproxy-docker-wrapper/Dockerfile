@@ -3,7 +3,7 @@ FROM ubuntu:16.04
 MAINTAINER Jaime Soriano Pastor <jsoriano@tuenti.com>
 
 RUN apt-get update && \
-	apt-get install -y curl hatop && \
+	apt-get install -y curl && \
 	rm -rf /var/lib/apt/lists/*
 
 COPY haproxy.cfg.tpl /etc/kube2lb/haproxy.cfg.tpl
