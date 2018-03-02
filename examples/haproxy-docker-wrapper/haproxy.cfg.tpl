@@ -10,7 +10,7 @@ global
 	nbthread {{ $nbthread }}
 {{- range $i, $cpu := IntRange $nbproc 1 $nbthread }}
 	cpu-map auto:{{ Add $i 1 }}/1-{{ $nbthread }} {{ $cpu }}-{{ Add $cpu $nbthread -1 }}
-	stats socket /var/lib/haproxy/socket{{ Add $i 1 }} process {{ Add $i 1 }} mode 600 level admin
+	stats socket /var/lib/haproxy/socket{{ Add $i 1 }} expose-fd listeners process {{ Add $i 1 }} mode 600 level admin
 {{- end }}
 
 
